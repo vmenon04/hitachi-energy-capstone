@@ -10,9 +10,10 @@ var uniqueSuffix = uniqueString(resourceGroup().id)
 module storageModule 'storage.bicep' = {
   name: 'storage-deployment'
   params: {
-    location: location
-    storageAccountName: '${prefix}storage${uniqueSuffix}'
-  }
+      location: location
+      // we name is 'hbi' + uniqueSuffix, which is 16 characters. this is under the 24 char limit for storage account names
+      storageAccountName: 'hbi${uniqueSuffix}' 
+    }
 }
 
 module aiModule 'ai-foundry.bicep' = {
