@@ -1,0 +1,26 @@
+name: Deploy Infrastructure
+
+on:
+  workflow_dispatch:
+
+jobs:
+  validate-bicep:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Install Bicep CLI
+        run: az bicep install
+
+      - name: Validate Bicep files
+        run: |
+          if ls infra/*.bicep 1> /dev/null 2>&1; then
+            for file in infra/*.bicep; do
+              echo "Building $file"
+              az bicep build --file "$file"
+            done
+          else
+            echo "No Bicep files found. Skipping validation."
+          fi
