@@ -2,25 +2,36 @@ name: Deploy Infrastructure
 
 on:
   workflow_dispatch:
+  # all pushes into the 'infrastructure' branch will deploy
+  push:
+    branches: [ infrastructure, development, main ]
+    paths: ['infra/**']
+  pull_request:
+    branches: [ development, main ]
+    paths: ['infra/**']
 
 jobs:
-  validate-bicep:
+  deploy:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout repo
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+      
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-      - name: Install Bicep CLI
-        run: az bicep install
-
-      - name: Validate Bicep files
+      # the What-If Preview prints logs for us so we can check if a deployment fails
+      - name: What-If Preview
         run: |
-          if ls infra/*.bicep 1> /dev/null 2>&1; then
-            for file in infra/*.bicep; do
-              echo "Building $file"
-              az bicep build --file "$file"
-            done
-          else
-            echo "No Bicep files found. Skipping validation."
-          fi
+          az deployment group what-if \
+            --resource-group Hitachi-RG \
+            --template-file infra/main.bicep \
+            --parameters location=eastus
+
+      - name: Deploy to Azure
+        uses: azure/arm-deploy@v2
+        with:
+          resourceGroupName: -RG
+          template: ./infra/main.bicep
+          parameters: location=eastus
