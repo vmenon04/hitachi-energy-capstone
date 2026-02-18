@@ -32,6 +32,6 @@ jobs:
       - name: Deploy to Azure
         uses: azure/arm-deploy@v2
         with:
-          resourceGroupName: -RG
+          resourceGroupName: Hitachi-RG
           template: ./infra/main.bicep
           parameters: location=eastus
