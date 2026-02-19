@@ -5,13 +5,46 @@ on:
   # all pushes into the 'infrastructure' branch will deploy
   push:
     branches: [ infrastructure, development, main ]
-    paths: ['infra/**']
+    paths: 
+      - 'infra/**'
+      - 'tests/test_bicep.py'
+      - '.github/workflows/deploy-infra.yml'
   pull_request:
     branches: [ development, main ]
-    paths: ['infra/**']
+    paths: 
+      - 'infra/**'
+      - 'tests/test_bicep.py'
+      - '.github/workflows/deploy-infra.yml'
 
 jobs:
+  test:
+    runs-on: ubuntu-latest
+    name: Validate Bicep Templates
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Install Azure CLI and Bicep
+        run: |
+          curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash
+          az bicep install
+
+      - name: Run Bicep tests
+        run: |
+          pytest tests/test_bicep.py -v --tb=short
+
   deploy:
+    needs: test
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
