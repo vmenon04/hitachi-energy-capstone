@@ -14,6 +14,7 @@ resource aiResource 'Microsoft.CognitiveServices/accounts@2025-06-01' = {
     name: 'S0'
   }
   properties: {
+    allowProjectManagement: true
     customSubDomainName: aiResourceName
     publicNetworkAccess: 'Enabled'
   }
@@ -32,7 +33,7 @@ resource gptDeployment 'Microsoft.CognitiveServices/accounts/deployments@2025-06
   }
   sku: {
     name: 'GlobalStandard'
-    capacity: 50
+    capacity: 1
   }
 }
 
