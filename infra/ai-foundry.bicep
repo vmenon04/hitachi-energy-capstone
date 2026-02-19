@@ -42,6 +42,9 @@ resource aiProject 'Microsoft.CognitiveServices/accounts/projects@2025-06-01' = 
   parent: aiResource
   name: projectName
   location: location
+  identity: {
+    type: 'SystemAssigned'
+  }
   properties: {
     displayName: 'Hitachi BI Analysis'
   }
