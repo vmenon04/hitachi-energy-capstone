@@ -10,10 +10,10 @@ var uniqueSuffix = uniqueString(resourceGroup().id)
 module storageModule 'storage.bicep' = {
   name: 'storage-deployment'
   params: {
-      location: location
-      // we name is 'hbi' + uniqueSuffix, which is 16 characters. this is under the 24 char limit for storage account names
-      storageAccountName: 'hbi${uniqueSuffix}' 
-    }
+    location: location
+    // we name is 'hbi' + uniqueSuffix, which is 16 characters. this is under the 24 char limit for storage account names
+    storageAccountName: 'hbi${uniqueSuffix}'
+  }
 }
 
 module aiModule 'ai-foundry.bicep' = {
@@ -25,6 +25,14 @@ module aiModule 'ai-foundry.bicep' = {
   }
 }
 
+module containerModule 'container.bicep' = {
+  params: {
+    location: location
+    acrName: 'hitachiacr${uniqueSuffix}'
+  }
+}
+
 // get the output from the modules and show it to us
 output aiResourceName string = aiModule.outputs.aiResourceName
 output storageName string = storageModule.outputs.storageAccountName
+output acrLoginServer string = containerModule.outputs.loginServer

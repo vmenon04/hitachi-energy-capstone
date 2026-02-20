@@ -68,3 +68,33 @@ jobs:
           resourceGroupName: Hitachi-RG
           template: ./infra/main.bicep
           parameters: location=eastus
+
+  build-and-push:
+    needs: deploy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Resolve ACR login server
+        id: acr
+        run: |
+          ACR_NAME="your-acr-name"   # or fetch from deployment output
+          LOGIN_SERVER=$(az acr show -n "$ACR_NAME" --query loginServer -o tsv)
+          echo "login_server=$LOGIN_SERVER" >> "$GITHUB_OUTPUT"
+          echo "acr_name=$ACR_NAME" >> "$GITHUB_OUTPUT"
+
+      - name: ACR Login
+        run: az acr login --name "${{ steps.acr.outputs.acr_name }}"
+
+      - name: Build and push image
+        run: |
+          IMAGE="${{ steps.acr.outputs.login_server }}/hitachi-app:${{ github.sha }}"
+          docker build -t "$IMAGE" .
+          docker push "$IMAGE"
+          docker tag "$IMAGE" "${{ steps.acr.outputs.login_server }}/hitachi-app:latest"
+          docker push "${{ steps.acr.outputs.login_server }}/hitachi-app:latest"
