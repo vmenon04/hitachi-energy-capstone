@@ -17,9 +17,17 @@ on:
       - 'requirements.txt'
       - '.github/workflows/deploy-app.yml'
 
+concurrency:
+  group: deploy-app-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  RESOURCE_GROUP: Hitachi-RG
+
 jobs:
   build-and-push:
     name: Build and Push Docker Image
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -33,7 +41,7 @@ jobs:
         id: acr
         run: |
           LOGIN_SERVER=$(az deployment group list \
-            --resource-group Hitachi-RG \
+            --resource-group ${{ env.RESOURCE_GROUP }} \
             --query "[?properties.outputs.acrLoginServer.value!=null] | sort_by(@, &properties.timestamp)[-1].properties.outputs.acrLoginServer.value" \
             -o tsv)
           ACR_NAME="${LOGIN_SERVER%%.*}"

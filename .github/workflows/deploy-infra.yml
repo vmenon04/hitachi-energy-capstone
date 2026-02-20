@@ -16,6 +16,14 @@ on:
       - 'tests/test_bicep.py'
       - '.github/workflows/deploy-infra.yml'
 
+concurrency:
+  group: deploy-infra-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  RESOURCE_GROUP: Hitachi-RG
+  LOCATION: eastus
+
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -46,6 +54,7 @@ jobs:
   deploy:
     name: Deploy Resources to Azure
     needs: test
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -59,13 +68,13 @@ jobs:
       - name: What-If Preview
         run: |
           az deployment group what-if \
-            --resource-group Hitachi-RG \
+            --resource-group ${{ env.RESOURCE_GROUP }} \
             --template-file infra/main.bicep \
-            --parameters location=eastus
+            --parameters location=${{ env.LOCATION }}
 
       - name: Deploy to Azure
         uses: azure/arm-deploy@v2
         with:
-          resourceGroupName: Hitachi-RG
+          resourceGroupName: ${{ env.RESOURCE_GROUP }}
           template: ./infra/main.bicep
-          parameters: location=eastus
+          parameters: location=${{ env.LOCATION }}
