@@ -83,8 +83,8 @@ resource containerAppJob 'Microsoft.App/jobs@2024-03-01' = {
 }
 
 resource containerAppJobContributorRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-  name: guid(containerAppJob.id, managedIdentity.id, 'ContainerAppsJobsContributor')
-  scope: containerAppJob
+  name: guid(resourceGroup().id, managedIdentity.id, 'ContainerAppsJobsContributor')
+  scope: resourceGroup()
   properties: {
     roleDefinitionId: containerAppsJobsContributorRoleDefinitionId
     principalId: managedIdentity.properties.principalId
