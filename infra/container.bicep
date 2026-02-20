@@ -1,5 +1,6 @@
 param location string
 param acrName string
+param managedIdentityName string = 'hitachi-mi'
 param containerAppEnvName string = 'hitachi-env'
 param jobName string = 'hitachi-job'
 param jobContainerName string = 'job-runner'
@@ -11,9 +12,9 @@ param replicaRetryLimit int = 1
 param parallelism int = 1
 param replicaCompletionCount int = 1
 
-var acrPullRoleDefinitionId = subscriptionResourceId(
+var containerAppsJobsContributorRoleDefinitionId = subscriptionResourceId(
   'Microsoft.Authorization/roleDefinitions',
-  '7f951dda-4ed3-4680-a7ca-43fe172d538d'
+  '4e3d2b60-56ae-4dc6-a233-09c8e5a82e68'
 )
 
 resource acr 'Microsoft.ContainerRegistry/registries@2023-07-01' = {
@@ -26,6 +27,11 @@ resource acr 'Microsoft.ContainerRegistry/registries@2023-07-01' = {
     adminUserEnabled: false
     publicNetworkAccess: 'Enabled'
   }
+}
+
+resource managedIdentity 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-01-31' = {
+  name: managedIdentityName
+  location: location
 }
 
 resource containerAppEnv 'Microsoft.App/managedEnvironments@2024-03-01' = {
@@ -76,12 +82,12 @@ resource containerAppJob 'Microsoft.App/jobs@2024-03-01' = {
   }
 }
 
-resource acrPullRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-  name: guid(acr.id, containerAppJob.id, 'AcrPull')
-  scope: acr
+resource containerAppJobContributorRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(containerAppJob.id, managedIdentity.id, 'ContainerAppsJobsContributor')
+  scope: containerAppJob
   properties: {
-    roleDefinitionId: acrPullRoleDefinitionId
-    principalId: containerAppJob.identity.principalId
+    roleDefinitionId: containerAppsJobsContributorRoleDefinitionId
+    principalId: managedIdentity.properties.principalId
     principalType: 'ServicePrincipal'
   }
 }
@@ -89,3 +95,6 @@ resource acrPullRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-
 output loginServer string = acr.properties.loginServer
 output containerAppEnvId string = containerAppEnv.id
 output containerAppJobId string = containerAppJob.id
+output managedIdentityId string = managedIdentity.id
+output managedIdentityPrincipalId string = managedIdentity.properties.principalId
+output managedIdentityClientId string = managedIdentity.properties.clientId
