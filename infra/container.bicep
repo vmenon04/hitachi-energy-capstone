@@ -12,11 +12,6 @@ param replicaRetryLimit int = 1
 param parallelism int = 1
 param replicaCompletionCount int = 1
 
-var containerAppsJobsContributorRoleDefinitionId = subscriptionResourceId(
-  'Microsoft.Authorization/roleDefinitions',
-  '4e3d2b60-56ae-4dc6-a233-09c8e5a82e68'
-)
-
 resource acr 'Microsoft.ContainerRegistry/registries@2023-07-01' = {
   name: acrName
   location: location
@@ -79,16 +74,6 @@ resource containerAppJob 'Microsoft.App/jobs@2024-03-01' = {
         }
       ]
     }
-  }
-}
-
-resource containerAppJobContributorRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-  name: guid(resourceGroup().id, managedIdentity.id, 'ContainerAppsJobsContributor')
-  scope: resourceGroup()
-  properties: {
-    roleDefinitionId: containerAppsJobsContributorRoleDefinitionId
-    principalId: managedIdentity.properties.principalId
-    principalType: 'ServicePrincipal'
   }
 }
 
