@@ -1,5 +1,5 @@
 # 1. Use a slim Python base image
-FROM python:3.10-slim
+FROM python:3.11-slim
 
 # 2. Set the working directory
 WORKDIR /app
@@ -11,8 +11,7 @@ WORKDIR /app
 
 # 4. Copy and install Python dependencies
 COPY requirements.txt .
-# RUN pip install --no-cache-dir -r requirements.txt
-RUN pip install -r requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
 
 # 5. Copy your application code
 COPY src/ ./src/

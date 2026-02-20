@@ -44,6 +44,7 @@ jobs:
           pytest tests/test_bicep.py -v --tb=short
 
   deploy:
+    name: Deploy Resources to Azure
     needs: test
     runs-on: ubuntu-latest
     steps:
@@ -70,6 +71,7 @@ jobs:
           parameters: location=eastus
 
   build-and-push:
+    name: Build and Push Docker Image
     needs: deploy
     runs-on: ubuntu-latest
     steps:
