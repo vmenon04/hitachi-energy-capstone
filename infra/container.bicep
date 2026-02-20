@@ -11,6 +11,11 @@ param replicaRetryLimit int = 1
 param parallelism int = 1
 param replicaCompletionCount int = 1
 
+var acrPullRoleDefinitionId = subscriptionResourceId(
+  'Microsoft.Authorization/roleDefinitions',
+  '7f951dda-4ed3-4680-a7ca-43fe172d538d'
+)
+
 resource acr 'Microsoft.ContainerRegistry/registries@2023-07-01' = {
   name: acrName
   location: location
@@ -68,6 +73,16 @@ resource containerAppJob 'Microsoft.App/jobs@2024-03-01' = {
         }
       ]
     }
+  }
+}
+
+resource acrPullRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(acr.id, containerAppJob.id, 'AcrPull')
+  scope: acr
+  properties: {
+    roleDefinitionId: acrPullRoleDefinitionId
+    principalId: containerAppJob.identity.principalId
+    principalType: 'ServicePrincipal'
   }
 }
 
