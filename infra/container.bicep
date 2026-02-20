@@ -2,6 +2,7 @@ param location string
 param acrName string
 param managedIdentityName string = 'hitachi-mi'
 param containerAppEnvName string = 'hitachi-env'
+param logAnalyticsWorkspaceName string = 'hitachi-logs'
 param jobName string = 'hitachi-job'
 param jobContainerName string = 'job-runner'
 param jobImage string = 'mcr.microsoft.com/hello-world:latest'
@@ -29,12 +30,27 @@ resource managedIdentity 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-
   location: location
 }
 
+resource logAnalyticsWorkspace 'Microsoft.OperationalInsights/workspaces@2023-09-01' = {
+  name: logAnalyticsWorkspaceName
+  location: location
+  properties: {
+    retentionInDays: 30
+    features: {
+      enableLogAccessUsingOnlyResourcePermissions: true
+    }
+  }
+}
+
 resource containerAppEnv 'Microsoft.App/managedEnvironments@2024-03-01' = {
   name: containerAppEnvName
   location: location
   properties: {
     appLogsConfiguration: {
-      destination: 'azure-monitor'
+      destination: 'log-analytics'
+      logAnalyticsConfiguration: {
+        customerId: logAnalyticsWorkspace.properties.customerId
+        sharedKey: logAnalyticsWorkspace.listKeys().primarySharedKey
+      }
     }
   }
 }
@@ -75,6 +91,7 @@ resource containerAppJob 'Microsoft.App/jobs@2024-03-01' = {
 output loginServer string = acr.properties.loginServer
 output containerAppEnvId string = containerAppEnv.id
 output containerAppJobId string = containerAppJob.id
+output logAnalyticsWorkspaceId string = logAnalyticsWorkspace.id
 output managedIdentityId string = managedIdentity.id
 output managedIdentityPrincipalId string = managedIdentity.properties.principalId
 output managedIdentityClientId string = managedIdentity.properties.clientId
