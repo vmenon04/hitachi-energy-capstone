@@ -1,6 +1,6 @@
 param location string
 param acrName string
-param containerAppEnvResourceId string = ''
+param containerAppEnvName string = 'hitachi-env'
 param jobName string = 'hitachi-job'
 param jobContainerName string = 'job-runner'
 param jobImage string = '${acrName}.azurecr.io/hitachi-app:latest'
@@ -23,14 +23,24 @@ resource acr 'Microsoft.ContainerRegistry/registries@2023-07-01' = {
   }
 }
 
-resource containerAppJob 'Microsoft.App/jobs@2024-03-01' = if (!empty(containerAppEnvResourceId)) {
+resource containerAppEnv 'Microsoft.App/managedEnvironments@2024-03-01' = {
+  name: containerAppEnvName
+  location: location
+  properties: {
+    appLogsConfiguration: {
+      destination: 'azure-monitor'
+    }
+  }
+}
+
+resource containerAppJob 'Microsoft.App/jobs@2024-03-01' = {
   name: jobName
   location: location
   identity: {
     type: 'SystemAssigned'
   }
   properties: {
-    environmentId: containerAppEnvResourceId
+    environmentId: containerAppEnv.id
     configuration: {
       triggerType: 'Manual'
       replicaTimeout: replicaTimeout
@@ -62,4 +72,5 @@ resource containerAppJob 'Microsoft.App/jobs@2024-03-01' = if (!empty(containerA
 }
 
 output loginServer string = acr.properties.loginServer
-output containerAppJobId string = !empty(containerAppEnvResourceId) ? containerAppJob.id : ''
+output containerAppEnvId string = containerAppEnv.id
+output containerAppJobId string = containerAppJob.id
