@@ -83,8 +83,17 @@ jobs:
       - name: Resolve ACR login server
         id: acr
         run: |
-          ACR_NAME="your-acr-name"   # or fetch from deployment output
-          LOGIN_SERVER=$(az acr show -n "$ACR_NAME" --query loginServer -o tsv)
+          LOGIN_SERVER=$(az deployment group list \
+            --resource-group Hitachi-RG \
+            --query "[?properties.outputs.acrLoginServer.value!=null] | sort_by(@, &properties.timestamp)[-1].properties.outputs.acrLoginServer.value" \
+            -o tsv)
+          ACR_NAME="${LOGIN_SERVER%%.*}"
+
+          if [ -z "$LOGIN_SERVER" ] || [ -z "$ACR_NAME" ]; then
+            echo "Unable to resolve ACR from deployment outputs." >&2
+            exit 1
+          fi
+
           echo "login_server=$LOGIN_SERVER" >> "$GITHUB_OUTPUT"
           echo "acr_name=$ACR_NAME" >> "$GITHUB_OUTPUT"
 
