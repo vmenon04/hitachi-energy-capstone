@@ -16,6 +16,7 @@ BICEP_FILES = [
     INFRA_DIR / "main.bicep",
     INFRA_DIR / "ai-foundry.bicep",
     INFRA_DIR / "storage.bicep",
+    INFRA_DIR / "container.bicep",
 ]
 
 
@@ -70,6 +71,7 @@ class TestMainBicep:
         
         assert "output aiResourceName" in content, "main.bicep should output aiResourceName"
         assert "output storageName" in content, "main.bicep should output storageName"
+        assert "output acrLoginServer" in content, "main.bicep should output acrLoginServer"
 
 
 class TestStorageBicep:
@@ -119,6 +121,40 @@ class TestAIFoundryBicep:
         
         assert "Microsoft.CognitiveServices/accounts/projects" in content
         assert "Hitachi BI Analysis" in content, "ai-foundry.bicep should create Hitachi BI Analysis project"
+
+
+class TestContainerBicep:
+    """Tests specific to container.bicep"""
+
+    def test_container_has_required_parameters(self):
+        """Test that container.bicep has expected parameters"""
+        bicep_file = INFRA_DIR / "container.bicep"
+        content = bicep_file.read_text()
+        
+        assert "param location" in content, "container.bicep should have location parameter"
+        assert "param acrName" in content, "container.bicep should have acrName parameter"
+
+    def test_container_creates_acr(self):
+        """Test that container.bicep creates Container Registry"""
+        bicep_file = INFRA_DIR / "container.bicep"
+        content = bicep_file.read_text()
+        
+        assert "Microsoft.ContainerRegistry/registries" in content, "container.bicep should create ACR resource"
+        assert "output loginServer" in content, "container.bicep should output loginServer"
+
+    def test_container_acr_sku(self):
+        """Test that container.bicep uses Basic SKU"""
+        bicep_file = INFRA_DIR / "container.bicep"
+        content = bicep_file.read_text()
+        
+        assert "'Basic'" in content, "container.bicep should use Basic SKU for ACR"
+
+    def test_container_admin_disabled(self):
+        """Test that admin user is disabled in ACR"""
+        bicep_file = INFRA_DIR / "container.bicep"
+        content = bicep_file.read_text()
+        
+        assert "adminUserEnabled: false" in content, "container.bicep should disable admin user"
 
 
 class TestBicepIntegration:
