@@ -5,7 +5,7 @@ param containerAppEnvName string = 'hitachi-env'
 param logAnalyticsWorkspaceName string = 'hitachi-logs'
 param jobName string = 'hitachi-job'
 param jobContainerName string = 'job-runner'
-param jobImage string = 'mcr.microsoft.com/k8se/quickstart-jobs:latest'
+param jobImage string = '${acrName}.azurecr.io/hitachi-app:latest'
 param jobCpu int = 1
 param jobMemory string = '2Gi'
 param replicaTimeout int = 1800
@@ -71,7 +71,12 @@ resource containerAppJob 'Microsoft.App/jobs@2024-03-01' = {
         parallelism: parallelism
         replicaCompletionCount: replicaCompletionCount
       }
-      registries: []
+      registries: [
+        {
+          server: acr.properties.loginServer
+          identity: 'system'
+        }
+      ]
     }
     template: {
       containers: [
