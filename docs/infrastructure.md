@@ -35,11 +35,11 @@ To use a different model, edit `ai-foundry.bicep` and update the deployment reso
 ```bicep
 resource gptDeployment 'Microsoft.CognitiveServices/accounts/deployments@2025-06-01' = {
   parent: aiResource
-  name: 'gpt-4-turbo'  // Change this
+  name: 'gpt-4.1-mini'  // Change this
   properties: {
     model: {
       format: 'OpenAI'
-      name: 'gpt-4-turbo'  // And this to your desired model
+      name: 'gpt-4.1-mini'  // And this to your desired model
       // ...
 ```
 
