@@ -32,7 +32,7 @@ module containerModule 'container.bicep' = {
   }
 }
 
-// get the output from the modules and show it to us
+// Get the output from the modules and show it to us
 output aiResourceName string = aiModule.outputs.aiResourceName
 output storageName string = storageModule.outputs.storageAccountName
 output acrLoginServer string = containerModule.outputs.loginServer
