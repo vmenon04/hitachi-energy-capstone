@@ -18,23 +18,23 @@ resource aiResource 'Microsoft.CognitiveServices/accounts@2025-06-01' = {
     customSubDomainName: aiResourceName
     publicNetworkAccess: 'Enabled'
   }
-// }
+}
 
-// // deploy the model
-// resource gptDeployment 'Microsoft.CognitiveServices/accounts/deployments@2025-06-01' = {
-//   parent: aiResource
-//   name: 'gpt-4.1-mini'
-//   properties: {
-//     model: {
-//       format: 'OpenAI'
-//       name: 'gpt-4.1-mini'
-//       version: '2025-04-14'
-//     }
-//   }
-//   sku: {
-//     name: 'GlobalStandard'
-//     capacity: 1
-//   }
+// deploy the model
+resource gptDeployment 'Microsoft.CognitiveServices/accounts/deployments@2025-06-01' = {
+  parent: aiResource
+  name: 'gpt-4.1-mini'
+  properties: {
+    model: {
+      format: 'OpenAI'
+      name: 'gpt-4.1-mini'
+      version: '2025-04-14'
+    }
+  }
+  sku: {
+    name: 'GlobalStandard'
+    capacity: 1
+  }
 }
 
 // ai foundry project
