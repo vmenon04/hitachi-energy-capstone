@@ -22,11 +22,11 @@ Provisions Azure Storage Account with blob services configured for big data work
 - Container named `bi-data` for CSV storage
 
 ### `ai-foundry.bicep`
-Deploys Azure AI Foundry resources including GPT-4.1 model deployment.
+Deploys Azure AI Foundry resources including Claude Haiku 4.5 model deployment.
 
 **Resources:**
 - AI Services account with system-assigned identity
-- For now, we have GPT-4.1 model deployed
+- For now, we have Claude Haiku 4.5 model deployed
 
 ## Changing the AI Model
 
@@ -35,11 +35,11 @@ To use a different model, edit `ai-foundry.bicep` and update the deployment reso
 ```bicep
 resource gptDeployment 'Microsoft.CognitiveServices/accounts/deployments@2025-06-01' = {
   parent: aiResource
-  name: 'gpt-4.1'  // Change this
+  name: 'claude-haiku-4-5'  // Change this
   properties: {
     model: {
-      format: 'OpenAI'
-      name: 'gpt-4.1'  // And this to your desired model
+      format: 'Claude'
+      name: 'claude-haiku-4-5'  // And this to your desired model
       // ...
 ```
 

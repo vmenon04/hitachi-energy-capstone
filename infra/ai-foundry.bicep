@@ -24,12 +24,12 @@ resource aiResource 'Microsoft.CognitiveServices/accounts@2025-06-01' = {
 // deploy the model
 resource gptDeployment 'Microsoft.CognitiveServices/accounts/deployments@2025-06-01' = {
   parent: aiResource
-  name: 'gpt-4.1'
+  name: 'claude-haiku-4-5'
   properties: {
     model: {
-      format: 'OpenAI'
-      name: 'gpt-4.1'
-      version: '2025-04-14'
+      format: 'Claude'
+      name: 'claude-haiku-4-5'
+      version: '2024-12-19'
     }
   }
   sku: {
