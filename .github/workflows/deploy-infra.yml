@@ -76,13 +76,15 @@ jobs:
         id: acr
         run: |
           LOGIN_SERVER=$(az deployment group list \
-            --resource-group ${{ env.RESOURCE_GROUP }} \
+            --resource-group Hitachi-RG \
             --query "[?properties.outputs.acrLoginServer.value!=null] | sort_by(@, &properties.timestamp)[-1].properties.outputs.acrLoginServer.value" \
             -o tsv)
-          ACR_NAME="${LOGIN_SERVER%%.*}"
+
+          ACR_NAME="${LOGIN_SERVER%%.azurecr.io}"
 
           if [ -z "$LOGIN_SERVER" ] || [ -z "$ACR_NAME" ]; then
             echo "Unable to resolve ACR from deployment outputs." >&2
+            echo "DEBUG LOGIN_SERVER='$LOGIN_SERVER'" >&2
             exit 1
           fi
 
