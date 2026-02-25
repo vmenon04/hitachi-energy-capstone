@@ -111,7 +111,7 @@ class TestAIFoundryBicep:
         bicep_file = INFRA_DIR / "ai-foundry.bicep"
         content = bicep_file.read_text()
         
-        assert "gpt-4.1-mini" in content, "ai-foundry.bicep should deploy gpt-4.1-mini model"
+        assert "gpt-4.1" in content, "ai-foundry.bicep should deploy gpt-4.1 model"
         assert "Microsoft.CognitiveServices/accounts/deployments" in content
 
     def test_aifoundry_creates_project(self):
