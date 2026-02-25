@@ -107,11 +107,11 @@ class TestAIFoundryBicep:
         assert "param projectName" in content, "ai-foundry.bicep should have projectName parameter"
 
     def test_aifoundry_deploys_model(self):
-        """Test that ai-foundry.bicep deploys Claude Haiku model"""
+        """Test that ai-foundry.bicep deploys GPT model"""
         bicep_file = INFRA_DIR / "ai-foundry.bicep"
         content = bicep_file.read_text()
         
-        assert "claude-haiku-4-5" in content, "ai-foundry.bicep should deploy claude-haiku-4-5 model"
+        assert "gpt-4.1-mini" in content, "ai-foundry.bicep should deploy gpt-4.1-mini model"
         assert "Microsoft.CognitiveServices/accounts/deployments" in content
 
     def test_aifoundry_creates_project(self):
