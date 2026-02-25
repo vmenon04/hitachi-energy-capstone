@@ -70,13 +70,21 @@ jobs:
           az deployment group what-if \
             --resource-group ${{ env.RESOURCE_GROUP }} \
             --template-file infra/main.bicep \
-            --parameters location=${{ env.LOCATION }}
+            --parameters location=${{ env.LOCATION }} deployContainerJob=false
+
+      - name: Deploy Core Infrastructure
+        uses: azure/arm-deploy@v2
+        with:
+          scope: resourcegroup
+          resourceGroupName: ${{ env.RESOURCE_GROUP }}
+          template: ./infra/main.bicep
+          parameters: location=${{ env.LOCATION }} deployContainerJob=false
 
       - name: Resolve ACR login server
         id: acr
         run: |
           LOGIN_SERVER=$(az deployment group list \
-            --resource-group Hitachi-RG \
+            --resource-group ${{ env.RESOURCE_GROUP }} \
             --query "[?properties.outputs.acrLoginServer.value!=null] | sort_by(@, &properties.timestamp)[-1].properties.outputs.acrLoginServer.value" \
             -o tsv)
 
@@ -102,10 +110,13 @@ jobs:
           docker tag "$IMAGE" "${{ steps.acr.outputs.login_server }}/hitachi-app:latest"
           docker push "${{ steps.acr.outputs.login_server }}/hitachi-app:latest"
 
-      - name: Deploy to Azure
+      - name: Deploy Container App Job
         uses: azure/arm-deploy@v2
         with:
           scope: resourcegroup
           resourceGroupName: ${{ env.RESOURCE_GROUP }}
           template: ./infra/main.bicep
-          parameters: location=${{ env.LOCATION }}
+          parameters: >-
+            location=${{ env.LOCATION }}
+            deployContainerJob=true
+            jobImage=${{ steps.acr.outputs.login_server }}/hitachi-app:${{ github.sha }}

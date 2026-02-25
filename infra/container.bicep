@@ -1,5 +1,6 @@
 param location string
 param acrName string
+param deployContainerJob bool = true
 param managedIdentityName string = 'hitachi-mi'
 param containerAppEnvName string = 'hitachi-env'
 param logAnalyticsWorkspaceName string = 'hitachi-logs'
@@ -55,7 +56,7 @@ resource containerAppEnv 'Microsoft.App/managedEnvironments@2024-03-01' = {
   }
 }
 
-resource containerAppJob 'Microsoft.App/jobs@2024-03-01' = {
+resource containerAppJob 'Microsoft.App/jobs@2024-03-01' = if (deployContainerJob) {
   name: jobName
   location: location
   identity: {
@@ -95,7 +96,7 @@ resource containerAppJob 'Microsoft.App/jobs@2024-03-01' = {
 
 output loginServer string = acr.properties.loginServer
 output containerAppEnvId string = containerAppEnv.id
-output containerAppJobId string = containerAppJob.id
+output containerAppJobId string = deployContainerJob ? containerAppJob.id : ''
 output logAnalyticsWorkspaceId string = logAnalyticsWorkspace.id
 output managedIdentityId string = managedIdentity.id
 output managedIdentityPrincipalId string = managedIdentity.properties.principalId

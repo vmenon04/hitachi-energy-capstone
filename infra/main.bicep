@@ -3,6 +3,8 @@ targetScope = 'resourceGroup'
 
 param location string = resourceGroup().location
 param prefix string = 'hitachi'
+param deployContainerJob bool = true
+param jobImage string = ''
 
 // create a unique suffix to avoid naming collisions
 var uniqueSuffix = uniqueString(resourceGroup().id)
@@ -29,6 +31,8 @@ module containerModule 'container.bicep' = {
   params: {
     location: location
     acrName: 'hitachiacr${uniqueSuffix}'
+    deployContainerJob: deployContainerJob
+    jobImage: empty(jobImage) ? 'hitachiacr${uniqueSuffix}.azurecr.io/hitachi-app:latest' : jobImage
   }
 }
 
