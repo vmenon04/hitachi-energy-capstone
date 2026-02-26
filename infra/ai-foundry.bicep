@@ -17,7 +17,6 @@ resource aiResource 'Microsoft.CognitiveServices/accounts@2025-06-01' = {
     allowProjectManagement: true
     customSubDomainName: aiResourceName
     publicNetworkAccess: 'Enabled'
-    restore: true
   }
 }
 
