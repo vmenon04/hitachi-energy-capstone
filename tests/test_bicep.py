@@ -93,6 +93,14 @@ class TestStorageBicep:
         assert "'bi-data'" in content, "storage.bicep should create bi-data container"
         assert "isHnsEnabled: true" in content, "storage.bicep should enable hierarchical namespace"
 
+    def test_storage_creates_reports_container(self):
+        """Tests that storage.bicep creates the bi-reports container"""
+        bicep_file = INFRA_DIR / "storage.bicep"
+        content = bicep_file.read_text()
+        
+        assert "'bi-reports'" in content, "storage.bicep should create bi-reports container"
+        assert "isHnsEnabled: true" in content, "storage.bicep should enable hierarchical namespace"
+
 
 class TestAIFoundryBicep:
     """Tests specific to ai-foundry.bicep"""

@@ -25,4 +25,13 @@ resource csvContainer 'Microsoft.Storage/storageAccounts/blobServices/containers
   name: 'bi-data' // this is the folder that shoudl house the CSVs
 }
 
+resource reportsContainer 'Microsoft.Storage/storageAccounts/blobServices/containers@2023-01-01' = {
+  parent: blobServices
+  name: 'bi-reports' // this container stores generated reports
+  properties: {
+    publicAccess: 'None'
+  }
+}
+
 output storageAccountName string = storageAccount.name
+output reportsContainerName string = reportsContainer.name
