@@ -21,7 +21,7 @@ module storageModule 'storage.bicep' = {
 module aiModule 'ai-foundry.bicep' = {
   name: 'ai-deployment'
   params: {
-    location: location
+    // location: location
     aiResourceName: '${prefix}-fdy-${uniqueSuffix}'
     projectName: 'hitachi-bi-project'
   }
