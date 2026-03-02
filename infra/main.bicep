@@ -22,7 +22,7 @@ module aiModule 'ai-foundry.bicep' = {
   name: 'ai-deployment'
   params: {
     location: location
-    aiResourceName: '${prefix}-ai-${uniqueSuffix}'
+    aiResourceName: '${prefix}-fdy-${uniqueSuffix}'
     projectName: 'hitachi-bi-project'
   }
 }
