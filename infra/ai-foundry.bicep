@@ -1,5 +1,5 @@
 // ai-foundry.bicep
-param location string
+// param location string
 param aiResourceName string
 param projectName string
 
