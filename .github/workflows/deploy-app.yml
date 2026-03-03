@@ -1,0 +1,66 @@
+name: Deploy Application
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ development, main ]
+    paths:
+      - 'src/**'
+      - 'Dockerfile'
+      - 'requirements.txt'
+      - '.github/workflows/deploy-app.yml'
+  pull_request:
+    branches: [ development, main ]
+    paths:
+      - 'src/**'
+      - 'Dockerfile'
+      - 'requirements.txt'
+      - '.github/workflows/deploy-app.yml'
+
+concurrency:
+  group: deploy-app-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  RESOURCE_GROUP: Hitachi-RG
+
+jobs:
+  build-and-push:
+    name: Build and Push Docker Image
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Resolve ACR login server
+        id: acr
+        run: |
+          LOGIN_SERVER=$(az deployment group list \
+            --resource-group ${{ env.RESOURCE_GROUP }} \
+            --query "[?properties.outputs.acrLoginServer.value!=null] | sort_by(@, &properties.timestamp)[-1].properties.outputs.acrLoginServer.value" \
+            -o tsv)
+          ACR_NAME="${LOGIN_SERVER%%.*}"
+
+          if [ -z "$LOGIN_SERVER" ] || [ -z "$ACR_NAME" ]; then
+            echo "Unable to resolve ACR from deployment outputs." >&2
+            exit 1
+          fi
+
+          echo "login_server=$LOGIN_SERVER" >> "$GITHUB_OUTPUT"
+          echo "acr_name=$ACR_NAME" >> "$GITHUB_OUTPUT"
+
+      - name: ACR Login
+        run: az acr login --name "${{ steps.acr.outputs.acr_name }}"
+
+      - name: Build and push image
+        run: |
+          IMAGE="${{ steps.acr.outputs.login_server }}/hitachi-app:${{ github.sha }}"
+          docker build -t "$IMAGE" .
+          docker push "$IMAGE"
+          docker tag "$IMAGE" "${{ steps.acr.outputs.login_server }}/hitachi-app:latest"
+          docker push "${{ steps.acr.outputs.login_server }}/hitachi-app:latest"

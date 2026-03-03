@@ -1,0 +1,37 @@
+## VCS / editor
+.git
+.gitignore
+.vscode/
+.idea/
+
+## Python caches / local envs
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.venv/
+venv/
+env/
+
+## Build and test artifacts
+build/
+dist/
+*.egg-info/
+.coverage
+htmlcov/
+
+## Secrets / local config
+.env
+.env.*
+*.pem
+*.key
+
+## OS noise
+.DS_Store
+
+## Keep image context lean (not needed by current Dockerfile)
+docs/
+infra/
+tests/
+Dockerfile
+README.md
