@@ -51,3 +51,8 @@ resource aiProject 'Microsoft.CognitiveServices/accounts/projects@2025-06-01' = 
 }
 
 output aiResourceName string = aiResource.name
+output aiEndpoint string = aiResource.properties.endpoint
+
+// @secure() masks the value in deployment logs
+@secure()
+output aiApiKey string = aiResource.listKeys().key1
