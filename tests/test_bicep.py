@@ -170,7 +170,7 @@ class TestKeyVaultBicep:
 
         assert "param location" in content
         assert "param keyVaultName" in content
-        assert "param managedIdentityPrincipalId" in content
+        # managedIdentityPrincipalId was moved to main.bicep (role assignment lives at top-level scope)
         assert "param storageConnectionString" in content
         assert "param storageContainerName" in content
         assert "param aiApiKey" in content
@@ -213,16 +213,17 @@ class TestKeyVaultBicep:
         )
 
     def test_keyvault_role_assignment_exists(self):
-        """Test that a role assignment resource is defined for the managed identity"""
-        bicep_file = INFRA_DIR / "keyvault.bicep"
-        content = bicep_file.read_text()
+        """Test that the Key Vault Secrets User role assignment is configured.
+        The role assignment was moved to deploy-infra.yml as an az CLI step to
+        bypass ARM function evaluation issues with role definition lookups."""
+        workflow_file = INFRA_DIR.parent / ".github" / "workflows" / "deploy-infra.yml"
+        content = workflow_file.read_text()
 
-        assert "Microsoft.Authorization/roleAssignments" in content, (
-            "keyvault.bicep should create a role assignment"
+        assert "Key Vault Secrets User" in content, (
+            "deploy-infra.yml should assign the Key Vault Secrets User role"
         )
-        # Built-in Key Vault Secrets User role GUID
-        assert "4633458b-17de-408a-b874-0445c86b69e0" in content, (
-            "keyvault.bicep should use the Key Vault Secrets User role"
+        assert "az role assignment create" in content, (
+            "deploy-infra.yml should create the role assignment via az CLI"
         )
 
     def test_keyvault_all_secrets_defined(self):
@@ -319,11 +320,15 @@ class TestBicepIntegration:
             )
 
     def test_container_uses_user_assigned_identity(self):
-        """Test that the Container App Job uses both SystemAssigned and UserAssigned identities"""
+        """Test that the Container App Job uses UserAssigned identity for both ACR pull and Key Vault"""
         bicep_file = INFRA_DIR / "container.bicep"
         content = bicep_file.read_text()
 
-        assert "SystemAssigned, UserAssigned" in content, (
-            "container.bicep should use both SystemAssigned (ACR pull) "
-            "and UserAssigned (Key Vault) identities on the job"
+        assert "type: 'UserAssigned'" in content, (
+            "container.bicep should use UserAssigned identity on the job "
+            "for both ACR image pull and Key Vault secret references"
+        )
+        assert "SystemAssigned" not in content, (
+            "container.bicep should not use SystemAssigned identity — "
+            "ACR pulls now use the UAMI to avoid RBAC propagation races"
         )

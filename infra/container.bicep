@@ -13,6 +13,7 @@ param replicaRetryLimit int = 1
 param parallelism int = 1
 param replicaCompletionCount int = 1
 param managedIdentityId string
+param managedIdentityPrincipalId string
 param keyVaultUri string
 
 resource acr 'Microsoft.ContainerRegistry/registries@2023-07-01' = {
@@ -56,9 +57,8 @@ resource containerAppJob 'Microsoft.App/jobs@2024-03-01' = if (deployContainerJo
   name: jobName
   location: location
   identity: {
-    // SystemAssigned is used by the ACR registry pull (identity: 'system' below).
-    // UserAssigned is used for Key Vault secret references at runtime.
-    type: 'SystemAssigned, UserAssigned'
+    // UserAssigned is used for both ACR image pull and Key Vault secret references.
+    type: 'UserAssigned'
     userAssignedIdentities: {
       '${managedIdentityId}': {}
     }
@@ -76,7 +76,7 @@ resource containerAppJob 'Microsoft.App/jobs@2024-03-01' = if (deployContainerJo
       registries: [
         {
           server: acr.properties.loginServer
-          identity: 'system'
+          identity: managedIdentityId
         }
       ]
 
@@ -124,15 +124,17 @@ resource containerAppJob 'Microsoft.App/jobs@2024-03-01' = if (deployContainerJo
   }
 }
 
-// grant the job's SystemAssigned identity AcrPull on the registry.
-var acrPullRoleId = '7f951dda-4ed3-4680-a7ca-43fe172d538d' // without this the job cannot pull its own image at startup.
+// Grant the User Assigned Managed Identity AcrPull on the registry.
+// This is intentionally NOT gated on deployContainerJob so the permission exists
+// before the Container App Job is first created, avoiding RBAC propagation races.
+var acrPullRoleId = '7f951dda-4ed3-4680-a7ca-43fe172d538d'
 
-resource acrPullRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = if (deployContainerJob) {
-  name: guid(acr.id, containerAppJob.?id ?? '', acrPullRoleId)
+resource acrPullRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(acr.id, managedIdentityId, acrPullRoleId)
   scope: acr
   properties: {
     roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', acrPullRoleId)
-    principalId: containerAppJob.?identity.?principalId ?? ''
+    principalId: managedIdentityPrincipalId
     principalType: 'ServicePrincipal'
   }
 }

@@ -9,7 +9,7 @@ param jobImage string = ''
 // create a unique suffix to avoid naming collisions
 var uniqueSuffix = uniqueString(resourceGroup().id)
 
-// created here so its principalId can be passed to keyvault.bicep for role assignment before the container module runs.
+// created here so its principalId can be used in the Key Vault role assignment below.
 resource managedIdentity 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-01-31' = {
   name: '${prefix}-mi'
   location: location
@@ -36,7 +36,6 @@ module kvModule 'keyvault.bicep' = {
   params: {
     location: location
     keyVaultName: 'kv${uniqueSuffix}'
-    managedIdentityPrincipalId: managedIdentity.properties.principalId
     storageConnectionString: storageModule.outputs.storageConnectionString
     storageContainerName: storageModule.outputs.csvContainerName
     aiApiKey: aiModule.outputs.aiApiKey
@@ -52,6 +51,7 @@ module containerModule 'container.bicep' = {
     deployContainerJob: deployContainerJob
     jobImage: empty(jobImage) ? 'hitachiacr${uniqueSuffix}.azurecr.io/hitachi-app:latest' : jobImage
     managedIdentityId: managedIdentity.id
+    managedIdentityPrincipalId: managedIdentity.properties.principalId
     keyVaultUri: kvModule.outputs.keyVaultUri
   }
 }
@@ -60,3 +60,4 @@ output aiResourceName string = aiModule.outputs.aiResourceName
 output storageName string = storageModule.outputs.storageAccountName
 output acrLoginServer string = containerModule.outputs.loginServer
 output keyVaultName string = kvModule.outputs.keyVaultName
+output managedIdentityPrincipalId string = managedIdentity.properties.principalId
