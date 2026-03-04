@@ -35,3 +35,8 @@ resource reportsContainer 'Microsoft.Storage/storageAccounts/blobServices/contai
 
 output storageAccountName string = storageAccount.name
 output reportsContainerName string = reportsContainer.name
+output csvContainerName string = csvContainer.name
+
+// @secure() masks the value in deployment logs
+@secure()
+output storageConnectionString string = 'DefaultEndpointsProtocol=https;AccountName=${storageAccount.name};AccountKey=${storageAccount.listKeys().keys[0].value};EndpointSuffix=core.windows.net'

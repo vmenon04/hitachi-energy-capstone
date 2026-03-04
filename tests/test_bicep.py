@@ -17,6 +17,7 @@ BICEP_FILES = [
     INFRA_DIR / "ai-foundry.bicep",
     INFRA_DIR / "storage.bicep",
     INFRA_DIR / "container.bicep",
+    INFRA_DIR / "keyvault.bicep",
 ]
 
 
@@ -72,6 +73,34 @@ class TestMainBicep:
         assert "output aiResourceName" in content, "main.bicep should output aiResourceName"
         assert "output storageName" in content, "main.bicep should output storageName"
         assert "output acrLoginServer" in content, "main.bicep should output acrLoginServer"
+
+    def test_main_references_keyvault_module(self):
+        """Test that main.bicep wires up the keyvault module"""
+        bicep_file = INFRA_DIR / "main.bicep"
+        content = bicep_file.read_text()
+
+        assert "'keyvault.bicep'" in content, "main.bicep should reference keyvault.bicep"
+
+    def test_main_passes_kv_uri_to_container(self):
+        """Test that main.bicep passes the KV URI from kvModule into containerModule"""
+        bicep_file = INFRA_DIR / "main.bicep"
+        content = bicep_file.read_text()
+
+        assert "kvModule.outputs.keyVaultUri" in content, (
+            "main.bicep should pass kvModule.outputs.keyVaultUri to containerModule"
+        )
+
+    def test_main_managed_identity_defined(self):
+        """Test that main.bicep defines the managed identity resource"""
+        bicep_file = INFRA_DIR / "main.bicep"
+        content = bicep_file.read_text()
+
+        assert "Microsoft.ManagedIdentity/userAssignedIdentities" in content, (
+            "main.bicep should define the user-assigned managed identity"
+        )
+        assert "managedIdentity.properties.principalId" in content, (
+            "main.bicep should pass managed identity principalId to keyvault module"
+        )
 
 
 class TestStorageBicep:
@@ -131,6 +160,96 @@ class TestAIFoundryBicep:
         assert "Hitachi BI Analysis" in content, "ai-foundry.bicep should create Hitachi BI Analysis project"
 
 
+class TestKeyVaultBicep:
+    """Tests specific to keyvault.bicep"""
+
+    def test_keyvault_has_required_parameters(self):
+        """Test that keyvault.bicep declares all expected parameters"""
+        bicep_file = INFRA_DIR / "keyvault.bicep"
+        content = bicep_file.read_text()
+
+        assert "param location" in content
+        assert "param keyVaultName" in content
+        assert "param managedIdentityPrincipalId" in content
+        assert "param storageConnectionString" in content
+        assert "param storageContainerName" in content
+        assert "param aiApiKey" in content
+        assert "param aiEndpoint" in content
+
+    def test_keyvault_secure_params(self):
+        """Test that sensitive parameters are marked @secure()"""
+        bicep_file = INFRA_DIR / "keyvault.bicep"
+        content = bicep_file.read_text()
+
+        # Locate @secure() decorators and verify they precede the sensitive params
+        assert "@secure()" in content, "keyvault.bicep should use @secure() on sensitive params"
+        secure_idx = [i for i, line in enumerate(content.splitlines()) if "@secure()" in line]
+        param_lines = content.splitlines()
+        secure_param_names = {param_lines[i + 1] for i in secure_idx if i + 1 < len(param_lines)}
+        assert any("storageConnectionString" in p for p in secure_param_names), (
+            "storageConnectionString should be @secure()"
+        )
+        assert any("aiApiKey" in p for p in secure_param_names), (
+            "aiApiKey should be @secure()"
+        )
+
+    def test_keyvault_uses_rbac(self):
+        """Test that the vault uses RBAC authorization (not legacy access policies)"""
+        bicep_file = INFRA_DIR / "keyvault.bicep"
+        content = bicep_file.read_text()
+
+        assert "enableRbacAuthorization: true" in content, (
+            "keyvault.bicep should use RBAC authorization"
+        )
+
+    def test_keyvault_soft_delete_enabled(self):
+        """Test that soft delete is enabled with a short retention period"""
+        bicep_file = INFRA_DIR / "keyvault.bicep"
+        content = bicep_file.read_text()
+
+        assert "enableSoftDelete: true" in content, "keyvault.bicep should enable soft delete"
+        assert "softDeleteRetentionInDays: 7" in content, (
+            "keyvault.bicep should use 7-day minimum retention to allow vault name reuse"
+        )
+
+    def test_keyvault_role_assignment_exists(self):
+        """Test that a role assignment resource is defined for the managed identity"""
+        bicep_file = INFRA_DIR / "keyvault.bicep"
+        content = bicep_file.read_text()
+
+        assert "Microsoft.Authorization/roleAssignments" in content, (
+            "keyvault.bicep should create a role assignment"
+        )
+        # Built-in Key Vault Secrets User role GUID
+        assert "4633458b-17de-408a-b874-0445c86b69e0" in content, (
+            "keyvault.bicep should use the Key Vault Secrets User role"
+        )
+
+    def test_keyvault_all_secrets_defined(self):
+        """Test that all four expected secrets are stored in the vault"""
+        bicep_file = INFRA_DIR / "keyvault.bicep"
+        content = bicep_file.read_text()
+
+        expected_secrets = [
+            "azure-storage-connection-string",
+            "azure-storage-container-name",
+            "azure-ai-project-api-key",
+            "azure-ai-project-endpoint",
+        ]
+        for secret in expected_secrets:
+            assert f"'{secret}'" in content, (
+                f"keyvault.bicep should define secret '{secret}'"
+            )
+
+    def test_keyvault_outputs(self):
+        """Test that keyvault.bicep exposes the URI and name outputs"""
+        bicep_file = INFRA_DIR / "keyvault.bicep"
+        content = bicep_file.read_text()
+
+        assert "output keyVaultName" in content, "keyvault.bicep should output keyVaultName"
+        assert "output keyVaultUri" in content, "keyvault.bicep should output keyVaultUri"
+
+
 class TestContainerBicep:
     """Tests specific to container.bicep"""
 
@@ -182,3 +301,29 @@ class TestBicepIntegration:
                 text=True,
             )
             assert result.returncode == 0, f"Compilation failed for {bicep_file}"
+
+    def test_container_references_kv_secrets(self):
+        """Test that container.bicep maps all KV secrets to environment variables"""
+        bicep_file = INFRA_DIR / "container.bicep"
+        content = bicep_file.read_text()
+
+        expected_env_vars = [
+            "AZURE_STORAGE_CONNECTION_STRING",
+            "AZURE_STORAGE_CONTAINER_NAME",
+            "AZURE_AI_PROJECT_API_KEY",
+            "AZURE_AI_PROJECT_ENDPOINT",
+        ]
+        for var in expected_env_vars:
+            assert var in content, (
+                f"container.bicep should map env var '{var}' from a KV secret ref"
+            )
+
+    def test_container_uses_user_assigned_identity(self):
+        """Test that the Container App Job uses both SystemAssigned and UserAssigned identities"""
+        bicep_file = INFRA_DIR / "container.bicep"
+        content = bicep_file.read_text()
+
+        assert "SystemAssigned, UserAssigned" in content, (
+            "container.bicep should use both SystemAssigned (ACR pull) "
+            "and UserAssigned (Key Vault) identities on the job"
+        )

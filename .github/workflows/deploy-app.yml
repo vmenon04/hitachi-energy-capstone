@@ -2,6 +2,10 @@ name: Deploy Application
 
 on:
   workflow_dispatch:
+  # Also run after infra deploys successfully, to handle the case where both workflows are triggered simultaneously by the same commit.
+  workflow_run:
+    workflows: ["Deploy Infrastructure"]
+    types: [completed]
   push:
     paths:
       - 'src/**'
@@ -39,10 +43,17 @@ jobs:
 
   build-and-push:
     name: Build and Push Docker Image
-    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    if: |
+      github.event_name == 'push' ||
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          # When triggered by workflow_run, check out the commit that triggered
+          # the infra workflow rather than defaulting to the main branch HEAD.
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
 
       - name: Azure Login
         uses: azure/login@v2
