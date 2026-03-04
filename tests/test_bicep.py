@@ -213,17 +213,18 @@ class TestKeyVaultBicep:
         )
 
     def test_keyvault_role_assignment_exists(self):
-        """Test that the Key Vault Secrets User role assignment is configured.
-        The role assignment was moved to deploy-infra.yml as an az CLI step to
-        bypass ARM function evaluation issues with role definition lookups."""
-        workflow_file = INFRA_DIR.parent / ".github" / "workflows" / "deploy-infra.yml"
-        content = workflow_file.read_text()
+        """Test that the Key Vault Secrets User role assignment is defined in keyvault.bicep."""
+        bicep_file = INFRA_DIR / "keyvault.bicep"
+        content = bicep_file.read_text()
 
-        assert "Key Vault Secrets User" in content, (
-            "deploy-infra.yml should assign the Key Vault Secrets User role"
+        assert "kvSecretsUserRoleId" in content, (
+            "keyvault.bicep should define the Key Vault Secrets User role ID"
         )
-        assert "az role assignment create" in content, (
-            "deploy-infra.yml should create the role assignment via az CLI"
+        assert "Microsoft.Authorization/roleAssignments" in content, (
+            "keyvault.bicep should declare a role assignment resource"
+        )
+        assert "4633458b-17de-408a-b874-0445c86b69e0" in content, (
+            "keyvault.bicep should use the correct Key Vault Secrets User role GUID"
         )
 
     def test_keyvault_all_secrets_defined(self):
