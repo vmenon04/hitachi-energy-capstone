@@ -51,6 +51,7 @@ module containerModule 'container.bicep' = {
     deployContainerJob: deployContainerJob
     jobImage: empty(jobImage) ? 'hitachiacr${uniqueSuffix}.azurecr.io/hitachi-app:latest' : jobImage
     managedIdentityId: managedIdentity.id
+    managedIdentityPrincipalId: managedIdentity.properties.principalId
     keyVaultUri: kvModule.outputs.keyVaultUri
   }
 }
