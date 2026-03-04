@@ -50,15 +50,19 @@ jobs:
     if: github.event_name == 'push'
     runs-on: ubuntu-latest
     outputs:
-      infra-changed: ${{ steps.filter.outputs.infra }}
+      infra-changed: ${{ steps.check.outputs.infra-changed }}
     steps:
       - uses: actions/checkout@v4
-      - uses: dorny/paths-filter@v3
-        id: filter
         with:
-          filters: |
-            infra:
-              - 'infra/**'
+          fetch-depth: 2
+      - name: Check if infra files changed
+        id: check
+        run: |
+          if git diff --name-only HEAD~1 HEAD | grep -q '^infra/'; then
+            echo "infra-changed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "infra-changed=false" >> "$GITHUB_OUTPUT"
+          fi
 
   build-and-push:
     name: Build and Push Docker Image
