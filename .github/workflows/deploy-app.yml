@@ -2,10 +2,14 @@ name: Deploy Application
 
 on:
   workflow_dispatch:
-  # Also run after infra deploys successfully, to handle the case where both workflows are triggered simultaneously by the same commit.
+  # Run after infra deploys successfully. When both infra and src change in the same commit,
+  # the push-triggered build-and-push job is skipped (infra-changed == true) and this
+  # workflow_run trigger ensures the app is deployed once infra has finished.
+  # Branch filter prevents this from firing on infra PR test runs (where no actual deploy occurred).
   workflow_run:
     workflows: ["Deploy Infrastructure"]
     types: [completed]
+    branches: [main, development, infrastructure]
   push:
     paths:
       - 'src/**'
@@ -41,12 +45,30 @@ jobs:
       - name: Build image (no push)
         run: docker build -t hitachi-app:pr-${{ github.sha }} .
 
+  check-paths:
+    name: Detect Changed Paths
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    outputs:
+      infra-changed: ${{ steps.filter.outputs.infra }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            infra:
+              - 'infra/**'
+
   build-and-push:
     name: Build and Push Docker Image
+    needs: [check-paths]
     if: |
-      github.event_name == 'push' ||
-      github.event_name == 'workflow_dispatch' ||
-      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success')
+      always() && (
+        github.event_name == 'workflow_dispatch' ||
+        (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') ||
+        (github.event_name == 'push' && needs.check-paths.outputs.infra-changed == 'false')
+      )
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -63,14 +85,25 @@ jobs:
       - name: Resolve ACR login server
         id: acr
         run: |
-          LOGIN_SERVER=$(az deployment group list \
-            --resource-group ${{ env.RESOURCE_GROUP }} \
-            --query "[?properties.outputs.acrLoginServer.value!=null] | sort_by(@, &properties.timestamp)[-1].properties.outputs.acrLoginServer.value" \
-            -o tsv)
+          # Primary: query the ACR resource directly — works even if no deployment output exists yet
+          LOGIN_SERVER=$(az acr list \
+            --resource-group "${{ env.RESOURCE_GROUP }}" \
+            --query "[0].loginServer" \
+            -o tsv 2>/dev/null || true)
+
+          # Fallback: derive from the most recent deployment that emitted acrLoginServer
+          if [ -z "$LOGIN_SERVER" ]; then
+            LOGIN_SERVER=$(az deployment group list \
+              --resource-group "${{ env.RESOURCE_GROUP }}" \
+              --query "[?properties.outputs.acrLoginServer.value!=null] | sort_by(@, &properties.timestamp)[-1].properties.outputs.acrLoginServer.value" \
+              -o tsv 2>/dev/null || true)
+          fi
+
           ACR_NAME="${LOGIN_SERVER%%.azurecr.io}"
 
           if [ -z "$LOGIN_SERVER" ] || [ -z "$ACR_NAME" ]; then
-            echo "Unable to resolve ACR from deployment outputs." >&2
+            echo "Unable to resolve ACR login server from either 'az acr list' or deployment outputs." >&2
+            echo "Ensure the infrastructure has been deployed to resource group ${{ env.RESOURCE_GROUP }} first." >&2
             exit 1
           fi
 
