@@ -52,8 +52,8 @@ resource kvRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' =
   scope: keyVaultRef
   dependsOn: [kvModule]
   properties: {
-    // tenantResourceId() produces the canonical path for built-in roles: /providers/Microsoft.Authorization/roleDefinitions/{guid}
-    roleDefinitionId: tenantResourceId('Microsoft.Authorization/roleDefinitions', kvSecretsUserRoleId)
+    // resourceId() for Microsoft.Authorization/roleDefinitions resolves at the correct scope
+    roleDefinitionId: resourceId('Microsoft.Authorization/roleDefinitions', kvSecretsUserRoleId)
     principalId: managedIdentity.properties.principalId
     principalType: 'ServicePrincipal'
   }
