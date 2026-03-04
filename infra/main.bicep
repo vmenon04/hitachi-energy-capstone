@@ -36,6 +36,7 @@ module kvModule 'keyvault.bicep' = {
   params: {
     location: location
     keyVaultName: 'kv${uniqueSuffix}'
+    managedIdentityPrincipalId: managedIdentity.properties.principalId
     storageConnectionString: storageModule.outputs.storageConnectionString
     storageContainerName: storageModule.outputs.csvContainerName
     aiApiKey: aiModule.outputs.aiApiKey
@@ -60,4 +61,3 @@ output aiResourceName string = aiModule.outputs.aiResourceName
 output storageName string = storageModule.outputs.storageAccountName
 output acrLoginServer string = containerModule.outputs.loginServer
 output keyVaultName string = kvModule.outputs.keyVaultName
-output managedIdentityPrincipalId string = managedIdentity.properties.principalId

@@ -1,5 +1,6 @@
 param location string
 param keyVaultName string
+param managedIdentityPrincipalId string
 
 // secret values sourced from sibling module outputs in main.bicep.
 @secure() // the @secure() ensures they are masked in deployment logs.
@@ -47,6 +48,19 @@ resource secretAiEndpoint 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = {
   parent: keyVault
   name: 'azure-ai-project-endpoint'
   properties: { value: aiEndpoint }
+}
+
+// Built-in "Key Vault Secrets User" role — grants read access to secrets.
+var kvSecretsUserRoleId = '4633458b-17de-408a-b874-0445c86b69e0'
+
+resource kvSecretsUserRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(keyVault.id, managedIdentityPrincipalId, kvSecretsUserRoleId)
+  scope: keyVault
+  properties: {
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', kvSecretsUserRoleId)
+    principalId: managedIdentityPrincipalId
+    principalType: 'ServicePrincipal'
+  }
 }
 
 output keyVaultName string = keyVault.name

@@ -73,34 +73,9 @@ jobs:
             --parameters location=${{ env.LOCATION }} deployContainerJob=false
 
       - name: Deploy Core Infrastructure
-        id: deploy
         uses: azure/arm-deploy@v2
         with:
           scope: resourcegroup
           resourceGroupName: ${{ env.RESOURCE_GROUP }}
           template: ./infra/main.bicep
           parameters: location=${{ env.LOCATION }} deployContainerJob=false
-
-      - name: Assign Key Vault Secrets User role to managed identity
-        run: |
-          KV_NAME=$(az keyvault list \
-            --resource-group ${{ env.RESOURCE_GROUP }} \
-            --query "[0].name" -o tsv)
-          MI_PRINCIPAL_ID="${{ steps.deploy.outputs.managedIdentityPrincipalId }}"
-          KV_SCOPE="/subscriptions/${{ fromJson(secrets.AZURE_CREDENTIALS).subscriptionId }}/resourceGroups/${{ env.RESOURCE_GROUP }}/providers/Microsoft.KeyVault/vaults/$KV_NAME"
-
-          EXISTING=$(az role assignment list \
-            --role "Key Vault Secrets User" \
-            --assignee "$MI_PRINCIPAL_ID" \
-            --scope "$KV_SCOPE" \
-            --query "[0].id" -o tsv 2>/dev/null || true)
-
-          if [ -z "$EXISTING" ]; then
-            az role assignment create \
-              --role "Key Vault Secrets User" \
-              --assignee-object-id "$MI_PRINCIPAL_ID" \
-              --assignee-principal-type ServicePrincipal \
-              --scope "$KV_SCOPE"
-          else
-            echo "Role assignment already exists, skipping."
-          fi
