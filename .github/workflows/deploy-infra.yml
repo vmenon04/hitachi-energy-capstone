@@ -16,6 +16,16 @@ on:
       - 'tests/test_bicep.py'
       - '.github/workflows/deploy-infra.yml'
 
+concurrency:
+  group: deploy-infra-${{ github.ref }}
+
+  # Only cancel in-progress runs for non-main branches
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+env:
+  RESOURCE_GROUP: Hitachi-RG
+  LOCATION: eastus
+
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -35,16 +45,16 @@ jobs:
           pip install -r requirements.txt
 
       - name: Install Azure CLI and Bicep
-        run: |
-          curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash
-          az bicep install
+        run: az bicep install
 
       - name: Run Bicep tests
         run: |
           pytest tests/test_bicep.py -v --tb=short
 
   deploy:
+    name: Deploy Resources to Azure
     needs: test
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -54,17 +64,18 @@ jobs:
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-      # the What-If Preview prints logs for us so we can check if a deployment fails
+      # What-If preview - prints a diff of what will change before deploying
       - name: What-If Preview
         run: |
           az deployment group what-if \
-            --resource-group Hitachi-RG \
+            --resource-group ${{ env.RESOURCE_GROUP }} \
             --template-file infra/main.bicep \
-            --parameters location=eastus
+            --parameters location=${{ env.LOCATION }} deployContainerJob=false
 
-      - name: Deploy to Azure
+      - name: Deploy Core Infrastructure
         uses: azure/arm-deploy@v2
         with:
-          resourceGroupName: Hitachi-RG
+          scope: resourcegroup
+          resourceGroupName: ${{ env.RESOURCE_GROUP }}
           template: ./infra/main.bicep
-          parameters: location=eastus
+          parameters: location=${{ env.LOCATION }} deployContainerJob=false
