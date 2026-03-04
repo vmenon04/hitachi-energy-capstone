@@ -57,7 +57,7 @@ resource kvSecretsUserRoleAssignment 'Microsoft.Authorization/roleAssignments@20
   name: guid(keyVault.id, managedIdentityPrincipalId, kvSecretsUserRoleId)
   scope: keyVault
   properties: {
-    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', kvSecretsUserRoleId)
+    roleDefinitionId: '/subscriptions/${subscription().subscriptionId}/providers/Microsoft.Authorization/roleDefinitions/${kvSecretsUserRoleId}'
     principalId: managedIdentityPrincipalId
     principalType: 'ServicePrincipal'
   }
