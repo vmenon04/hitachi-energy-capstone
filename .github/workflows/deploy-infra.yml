@@ -64,7 +64,7 @@ jobs:
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-      # the What-If Preview prints logs for us so we can check if a deployment fails
+      # What-If preview - prints a diff of what will change before deploying
       - name: What-If Preview
         run: |
           az deployment group what-if \
@@ -79,44 +79,3 @@ jobs:
           resourceGroupName: ${{ env.RESOURCE_GROUP }}
           template: ./infra/main.bicep
           parameters: location=${{ env.LOCATION }} deployContainerJob=false
-
-      - name: Resolve ACR login server
-        id: acr
-        run: |
-          LOGIN_SERVER=$(az deployment group list \
-            --resource-group ${{ env.RESOURCE_GROUP }} \
-            --query "[?properties.outputs.acrLoginServer.value!=null] | sort_by(@, &properties.timestamp)[-1].properties.outputs.acrLoginServer.value" \
-            -o tsv)
-
-          ACR_NAME="${LOGIN_SERVER%%.azurecr.io}"
-
-          if [ -z "$LOGIN_SERVER" ] || [ -z "$ACR_NAME" ]; then
-            echo "Unable to resolve ACR from deployment outputs." >&2
-            echo "DEBUG LOGIN_SERVER='$LOGIN_SERVER'" >&2
-            exit 1
-          fi
-
-          echo "login_server=$LOGIN_SERVER" >> "$GITHUB_OUTPUT"
-          echo "acr_name=$ACR_NAME" >> "$GITHUB_OUTPUT"
-
-      - name: ACR Login
-        run: az acr login --name "${{ steps.acr.outputs.acr_name }}"
-
-      - name: Build and push image
-        run: |
-          IMAGE="${{ steps.acr.outputs.login_server }}/hitachi-app:${{ github.sha }}"
-          docker build -t "$IMAGE" .
-          docker push "$IMAGE"
-          docker tag "$IMAGE" "${{ steps.acr.outputs.login_server }}/hitachi-app:latest"
-          docker push "${{ steps.acr.outputs.login_server }}/hitachi-app:latest"
-
-      - name: Deploy Container App Job
-        uses: azure/arm-deploy@v2
-        with:
-          scope: resourcegroup
-          resourceGroupName: ${{ env.RESOURCE_GROUP }}
-          template: ./infra/main.bicep
-          parameters: >-
-            location=${{ env.LOCATION }}
-            deployContainerJob=true
-            jobImage=${{ steps.acr.outputs.login_server }}/hitachi-app:${{ github.sha }}
