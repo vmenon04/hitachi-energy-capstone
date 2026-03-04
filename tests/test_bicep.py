@@ -320,11 +320,15 @@ class TestBicepIntegration:
             )
 
     def test_container_uses_user_assigned_identity(self):
-        """Test that the Container App Job uses both SystemAssigned and UserAssigned identities"""
+        """Test that the Container App Job uses UserAssigned identity for both ACR pull and Key Vault"""
         bicep_file = INFRA_DIR / "container.bicep"
         content = bicep_file.read_text()
 
-        assert "SystemAssigned, UserAssigned" in content, (
-            "container.bicep should use both SystemAssigned (ACR pull) "
-            "and UserAssigned (Key Vault) identities on the job"
+        assert "type: 'UserAssigned'" in content, (
+            "container.bicep should use UserAssigned identity on the job "
+            "for both ACR image pull and Key Vault secret references"
+        )
+        assert "SystemAssigned" not in content, (
+            "container.bicep should not use SystemAssigned identity — "
+            "ACR pulls now use the UAMI to avoid RBAC propagation races"
         )
