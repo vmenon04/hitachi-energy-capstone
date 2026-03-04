@@ -10,7 +10,6 @@ on:
       - 'requirements.txt'
       - '.github/workflows/deploy-app.yml'
   pull_request:
-    branches: [ development, main ]
     paths:
       - 'src/**'
       - 'Dockerfile'
