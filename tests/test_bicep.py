@@ -170,7 +170,7 @@ class TestKeyVaultBicep:
 
         assert "param location" in content
         assert "param keyVaultName" in content
-        assert "param managedIdentityPrincipalId" in content
+        # managedIdentityPrincipalId was moved to main.bicep (role assignment lives at top-level scope)
         assert "param storageConnectionString" in content
         assert "param storageContainerName" in content
         assert "param aiApiKey" in content
@@ -213,16 +213,18 @@ class TestKeyVaultBicep:
         )
 
     def test_keyvault_role_assignment_exists(self):
-        """Test that a role assignment resource is defined for the managed identity"""
-        bicep_file = INFRA_DIR / "keyvault.bicep"
-        content = bicep_file.read_text()
+        """Test that a role assignment resource is defined for the managed identity.
+        The role assignment lives in main.bicep at top-level deployment scope so that
+        ARM can resolve subscription() and calculate the resource ID at plan time."""
+        main_file = INFRA_DIR / "main.bicep"
+        content = main_file.read_text()
 
         assert "Microsoft.Authorization/roleAssignments" in content, (
-            "keyvault.bicep should create a role assignment"
+            "main.bicep should create a Key Vault role assignment"
         )
         # Built-in Key Vault Secrets User role GUID
         assert "4633458b-17de-408a-b874-0445c86b69e0" in content, (
-            "keyvault.bicep should use the Key Vault Secrets User role"
+            "main.bicep should use the Key Vault Secrets User role"
         )
 
     def test_keyvault_all_secrets_defined(self):
