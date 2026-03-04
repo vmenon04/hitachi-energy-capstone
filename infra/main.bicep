@@ -44,20 +44,16 @@ module kvModule 'keyvault.bicep' = {
 }
 
 // Role assignment is declared at top-level scope (outside any nested module) so that
-// subscription() resolves correctly and ARM can calculate the resource ID at plan time.
+// ARM can calculate the resource ID at plan time.
 var kvSecretsUserRoleId = '4633458b-17de-408a-b874-0445c86b69e0'
-
-resource kvSecretsUserRole 'Microsoft.Authorization/roleDefinitions@2022-04-01' existing = {
-  scope: subscription()
-  name: kvSecretsUserRoleId
-}
 
 resource kvRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
   name: guid(resourceId('Microsoft.KeyVault/vaults', 'kv${uniqueSuffix}'), managedIdentity.id, kvSecretsUserRoleId)
   scope: keyVaultRef
   dependsOn: [kvModule]
   properties: {
-    roleDefinitionId: kvSecretsUserRole.id
+    // subscriptionResourceId() is a pure string function - no runtime lookup needed
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', kvSecretsUserRoleId)
     principalId: managedIdentity.properties.principalId
     principalType: 'ServicePrincipal'
   }
