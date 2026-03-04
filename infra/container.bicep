@@ -125,14 +125,14 @@ resource containerAppJob 'Microsoft.App/jobs@2024-03-01' = if (deployContainerJo
 }
 
 // grant the job's SystemAssigned identity AcrPull on the registry.
-var acrPullRoleId = '7f951dda-4ed3-4680-a7ca-43fe172d538d' // wsithout this the job cannot pull its own image at startup.
+var acrPullRoleId = '7f951dda-4ed3-4680-a7ca-43fe172d538d' // without this the job cannot pull its own image at startup.
 
 resource acrPullRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = if (deployContainerJob) {
-  name: guid(acr.id, containerAppJob.id, acrPullRoleId)
+  name: guid(acr.id, containerAppJob.?id ?? '', acrPullRoleId)
   scope: acr
   properties: {
     roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', acrPullRoleId)
-    principalId: containerAppJob.identity.principalId
+    principalId: containerAppJob.?identity.?principalId ?? ''
     principalType: 'ServicePrincipal'
   }
 }
