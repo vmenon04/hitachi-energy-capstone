@@ -1,8 +1,6 @@
 param location string
 param keyVaultName string
 
-param managedIdentityPrincipalId string // from the user-assigned managed identity created in main.bicep
-
 // secret values sourced from sibling module outputs in main.bicep.
 @secure() // the @secure() ensures they are masked in deployment logs.
 param storageConnectionString string
@@ -24,25 +22,6 @@ resource keyVault 'Microsoft.KeyVault/vaults@2023-07-01' = {
     enableSoftDelete: true
     softDeleteRetentionInDays: 7
     publicNetworkAccess: 'Enabled'
-  }
-}
-
-// this is the built-in role for "Key Vault Secrets User" which grants read access to secrets
-var kvSecretsUserRoleId = '4633458b-17de-408a-b874-0445c86b69e0'
-
-// Declare the built-in role as an existing resource at subscription scope so ARM can resolve it correctly
-resource kvSecretsUserRole 'Microsoft.Authorization/roleDefinitions@2022-04-01' existing = {
-  scope: subscription()
-  name: kvSecretsUserRoleId
-}
-
-resource roleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-  name: guid(keyVault.id, managedIdentityPrincipalId, kvSecretsUserRoleId)
-  scope: keyVault
-  properties: {
-    roleDefinitionId: kvSecretsUserRole.id
-    principalId: managedIdentityPrincipalId
-    principalType: 'ServicePrincipal'
   }
 }
 
@@ -72,3 +51,4 @@ resource secretAiEndpoint 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = {
 
 output keyVaultName string = keyVault.name
 output keyVaultUri string = keyVault.properties.vaultUri
+output keyVaultId string = keyVault.id

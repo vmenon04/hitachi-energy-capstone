@@ -9,7 +9,7 @@ param jobImage string = ''
 // create a unique suffix to avoid naming collisions
 var uniqueSuffix = uniqueString(resourceGroup().id)
 
-// created here so its principalId can be passed to keyvault.bicep for role assignment before the container module runs.
+// created here so its principalId can be used in the Key Vault role assignment below.
 resource managedIdentity 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-01-31' = {
   name: '${prefix}-mi'
   location: location
@@ -36,12 +36,36 @@ module kvModule 'keyvault.bicep' = {
   params: {
     location: location
     keyVaultName: 'kv${uniqueSuffix}'
-    managedIdentityPrincipalId: managedIdentity.properties.principalId
     storageConnectionString: storageModule.outputs.storageConnectionString
     storageContainerName: storageModule.outputs.csvContainerName
     aiApiKey: aiModule.outputs.aiApiKey
     aiEndpoint: aiModule.outputs.aiEndpoint
   }
+}
+
+// Role assignment is declared at top-level scope (outside any nested module) so that
+// subscription() resolves correctly and ARM can calculate the resource ID at plan time.
+var kvSecretsUserRoleId = '4633458b-17de-408a-b874-0445c86b69e0'
+
+resource kvSecretsUserRole 'Microsoft.Authorization/roleDefinitions@2022-04-01' existing = {
+  scope: subscription()
+  name: kvSecretsUserRoleId
+}
+
+resource kvRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(resourceId('Microsoft.KeyVault/vaults', 'kv${uniqueSuffix}'), managedIdentity.id, kvSecretsUserRoleId)
+  scope: keyVaultRef
+  dependsOn: [kvModule]
+  properties: {
+    roleDefinitionId: kvSecretsUserRole.id
+    principalId: managedIdentity.properties.principalId
+    principalType: 'ServicePrincipal'
+  }
+}
+
+// Reference the Key Vault resource so we can scope the role assignment to it
+resource keyVaultRef 'Microsoft.KeyVault/vaults@2023-07-01' existing = {
+  name: 'kv${uniqueSuffix}'
 }
 
 module containerModule 'container.bicep' = {
