@@ -43,27 +43,6 @@ module kvModule 'keyvault.bicep' = {
   }
 }
 
-// Role assignment is declared at top-level scope (outside any nested module) so that
-// ARM can calculate the resource ID at plan time.
-var kvSecretsUserRoleId = '4633458b-17de-408a-b874-0445c86b69e0'
-
-resource kvRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-  name: guid(resourceId('Microsoft.KeyVault/vaults', 'kv${uniqueSuffix}'), managedIdentity.id, kvSecretsUserRoleId)
-  scope: keyVaultRef
-  dependsOn: [kvModule]
-  properties: {
-    // resourceId() for Microsoft.Authorization/roleDefinitions resolves at the correct scope
-    roleDefinitionId: resourceId('Microsoft.Authorization/roleDefinitions', kvSecretsUserRoleId)
-    principalId: managedIdentity.properties.principalId
-    principalType: 'ServicePrincipal'
-  }
-}
-
-// Reference the Key Vault resource so we can scope the role assignment to it
-resource keyVaultRef 'Microsoft.KeyVault/vaults@2023-07-01' existing = {
-  name: 'kv${uniqueSuffix}'
-}
-
 module containerModule 'container.bicep' = {
   name: 'container-deployment'
   params: {
@@ -80,3 +59,4 @@ output aiResourceName string = aiModule.outputs.aiResourceName
 output storageName string = storageModule.outputs.storageAccountName
 output acrLoginServer string = containerModule.outputs.loginServer
 output keyVaultName string = kvModule.outputs.keyVaultName
+output managedIdentityPrincipalId string = managedIdentity.properties.principalId
