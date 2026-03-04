@@ -19,7 +19,9 @@ on:
 
 concurrency:
   group: deploy-app-${{ github.ref }}
-  cancel-in-progress: true
+
+  # Only cancel in-progress runs for non-main branches
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 env:
   RESOURCE_GROUP: Hitachi-RG

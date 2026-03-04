@@ -18,7 +18,9 @@ on:
 
 concurrency:
   group: deploy-infra-${{ github.ref }}
-  cancel-in-progress: true
+
+  # Only cancel in-progress runs for non-main branches
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 env:
   RESOURCE_GROUP: Hitachi-RG
@@ -43,9 +45,7 @@ jobs:
           pip install -r requirements.txt
 
       - name: Install Azure CLI and Bicep
-        run: |
-          curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash
-          az bicep install
+        run: az bicep install
 
       - name: Run Bicep tests
         run: |
