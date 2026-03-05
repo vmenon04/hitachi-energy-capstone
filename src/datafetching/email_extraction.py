@@ -50,12 +50,12 @@ def sharepoint_to_blob(drive_id: str, folder_id: str = "root"):
             file_id = file["id"]
             print(f"Reading {file_name}")
 
-            read_file_url = f"https://graph.microsoft.com/v1.0/drives/{drive_id}/items/{item_id}/content" 
+            read_file_url = f"https://graph.microsoft.com/v1.0/drives/{drive_id}/items/{file_id}/content" 
             file_response = requests.get(read_file_url, headers=headers, stream=True)
             file_response.raise_for_status()
 
             new_blob = blob_client.get_blob_client(file_name)
-            new_blob.upload_blob(file_response.raw, overWrite = True)
+            new_blob.upload_blob(file_response.content, overwrite = True)
             print(f"Successfully Read and Transferred {file_name} to Azure Blob Storage")
     
     print("Finished Transferring Files from SharePoint to Azure Blob Storage")
@@ -63,6 +63,19 @@ def sharepoint_to_blob(drive_id: str, folder_id: str = "root"):
 
 def main():
     print("hi")
+    try:
+        drive_id = os.environ("SHAREPOINT_DRIVE_ID")
+        folder_id = os.environ.get("SHAREPOINT_FOLDER_ID", "root")
+
+        print (f"Starting Transfer")
+        sharepoint_to_blob(drive_id, folder_id)
+        print(f"Finished Transfer")
+    except KeyError as e:
+        print(f"Missing SHAREPOINT_DRIVE_ID: {e}")
+    except Exception as e:
+        print(f"Error in the process: {e}")
+        
+        
 
 if __name__ == "__main__":
     main()
