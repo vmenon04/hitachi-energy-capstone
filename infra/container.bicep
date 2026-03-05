@@ -1,7 +1,6 @@
 param location string
 param acrName string
 param deployContainerJob bool = true
-param managedIdentityName string = 'hitachi-mi'
 param containerAppEnvName string = 'hitachi-env'
 param logAnalyticsWorkspaceName string = 'hitachi-logs'
 param jobName string = 'hitachi-job'
@@ -13,6 +12,9 @@ param replicaTimeout int = 1800
 param replicaRetryLimit int = 1
 param parallelism int = 1
 param replicaCompletionCount int = 1
+param managedIdentityId string
+param managedIdentityPrincipalId string
+param keyVaultUri string
 
 resource acr 'Microsoft.ContainerRegistry/registries@2023-07-01' = {
   name: acrName
@@ -24,11 +26,6 @@ resource acr 'Microsoft.ContainerRegistry/registries@2023-07-01' = {
     adminUserEnabled: false
     publicNetworkAccess: 'Enabled'
   }
-}
-
-resource managedIdentity 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-01-31' = {
-  name: managedIdentityName
-  location: location
 }
 
 resource logAnalyticsWorkspace 'Microsoft.OperationalInsights/workspaces@2023-09-01' = {
@@ -60,7 +57,11 @@ resource containerAppJob 'Microsoft.App/jobs@2024-03-01' = if (deployContainerJo
   name: jobName
   location: location
   identity: {
-    type: 'SystemAssigned'
+    // UserAssigned is used for both ACR image pull and Key Vault secret references.
+    type: 'UserAssigned'
+    userAssignedIdentities: {
+      '${managedIdentityId}': {}
+    }
   }
   properties: {
     environmentId: containerAppEnv.id
@@ -75,7 +76,30 @@ resource containerAppJob 'Microsoft.App/jobs@2024-03-01' = if (deployContainerJo
       registries: [
         {
           server: acr.properties.loginServer
-          identity: 'system'
+          identity: managedIdentityId
+        }
+      ]
+
+      secrets: [
+        {
+          name: 'azure-storage-connection-string'
+          keyVaultUrl: '${keyVaultUri}secrets/azure-storage-connection-string'
+          identity: managedIdentityId
+        }
+        {
+          name: 'azure-storage-container-name'
+          keyVaultUrl: '${keyVaultUri}secrets/azure-storage-container-name'
+          identity: managedIdentityId
+        }
+        {
+          name: 'azure-ai-project-api-key'
+          keyVaultUrl: '${keyVaultUri}secrets/azure-ai-project-api-key'
+          identity: managedIdentityId
+        }
+        {
+          name: 'azure-ai-project-endpoint'
+          keyVaultUrl: '${keyVaultUri}secrets/azure-ai-project-endpoint'
+          identity: managedIdentityId
         }
       ]
     }
@@ -88,9 +112,30 @@ resource containerAppJob 'Microsoft.App/jobs@2024-03-01' = if (deployContainerJo
             cpu: jobCpu
             memory: jobMemory
           }
+          env: [
+            { name: 'AZURE_STORAGE_CONNECTION_STRING', secretRef: 'azure-storage-connection-string' }
+            { name: 'AZURE_STORAGE_CONTAINER_NAME',    secretRef: 'azure-storage-container-name' }
+            { name: 'AZURE_AI_PROJECT_API_KEY',        secretRef: 'azure-ai-project-api-key' }
+            { name: 'AZURE_AI_PROJECT_ENDPOINT',       secretRef: 'azure-ai-project-endpoint' }
+          ]
         }
       ]
     }
+  }
+}
+
+// Grant the User Assigned Managed Identity AcrPull on the registry.
+// This is intentionally NOT gated on deployContainerJob so the permission exists
+// before the Container App Job is first created, avoiding RBAC propagation races.
+var acrPullRoleId = '7f951dda-4ed3-4680-a7ca-43fe172d538d'
+
+resource acrPullRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(acr.id, managedIdentityId, acrPullRoleId)
+  scope: acr
+  properties: {
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', acrPullRoleId)
+    principalId: managedIdentityPrincipalId
+    principalType: 'ServicePrincipal'
   }
 }
 
@@ -98,6 +143,3 @@ output loginServer string = acr.properties.loginServer
 output containerAppEnvId string = containerAppEnv.id
 output containerAppJobId string = deployContainerJob ? containerAppJob.id : ''
 output logAnalyticsWorkspaceId string = logAnalyticsWorkspace.id
-output managedIdentityId string = managedIdentity.id
-output managedIdentityPrincipalId string = managedIdentity.properties.principalId
-output managedIdentityClientId string = managedIdentity.properties.clientId
