@@ -1,7 +1,5 @@
-import io
 import os
 import requests
-import pandas as pd
 from dotenv import load_dotenv
 from azure.identity import DefaultAzureCredential
 from azure.storage.blob import BlobServiceClient
@@ -64,7 +62,7 @@ def sharepoint_to_blob(drive_id: str, folder_id: str = "root"):
 def main():
     print("hi")
     try:
-        drive_id = os.environ("SHAREPOINT_DRIVE_ID")
+        drive_id = os.environ["SHAREPOINT_DRIVE_ID"]
         folder_id = os.environ.get("SHAREPOINT_FOLDER_ID", "root")
 
         print (f"Starting Transfer")
