@@ -43,6 +43,23 @@ def sharepoint_to_blob(drive_id: str, folder_id: str = "root"):
     response = requests.get(list_url, headers = headers)
     response.raise_for_status()
     files = response.json().get("value", [])
+    
+    for file in files:
+        if "file" in file and (file["name"].endswith(".xlsx") or file["name"].endswith(".xls") or file["name"].endswith(".XLSX") or file["name"].endswith(".XLS")):
+            file_name = file["name"]
+            file_id = file["id"]
+            print(f"Reading {file_name}")
+
+            read_file_url = f"https://graph.microsoft.com/v1.0/drives/{drive_id}/items/{item_id}/content" 
+            file_response = requests.get(read_file_url, headers=headers, stream=True)
+            file_response.raise_for_status()
+
+            new_blob = blob_client.get_blob_client(file_name)
+            new_blob.upload_blob(file_response.raw, overWrite = True)
+            print(f"Successfully Read and Transferred {file_name} to Azure Blob Storage")
+    
+    print("Finished Transferring Files from SharePoint to Azure Blob Storage")
+
 
 def main():
     print("hi")
