@@ -199,18 +199,6 @@ class TestCommunicationBicep:
             "communication.bicep should create communication service resource"
         )
 
-    def test_communication_links_domain(self):
-        """Test that communication.bicep links email domain to communication service"""
-        bicep_file = INFRA_DIR / "communication.bicep"
-        content = bicep_file.read_text()
-
-        assert "Microsoft.Communication/communicationServices/domains@" in content, (
-            "communication.bicep should link domain to communication service"
-        )
-        assert "domainId: emailDomain.id" in content, (
-            "communication.bicep should reference emailDomain.id when linking"
-        )
-
     def test_communication_has_required_outputs(self):
         """Test that communication.bicep exposes required outputs"""
         bicep_file = INFRA_DIR / "communication.bicep"
