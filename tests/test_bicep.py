@@ -214,16 +214,16 @@ class TestKeyVaultBicep:
 
     def test_keyvault_role_assignment_exists(self):
         """Test that the Key Vault Secrets User role assignment is configured.
-        The role assignment was moved to deploy-infra.yml as an az CLI step to
+        The role assignment is configured in deploy.yml as an az CLI step to
         bypass ARM function evaluation issues with role definition lookups."""
-        workflow_file = INFRA_DIR.parent / ".github" / "workflows" / "deploy-infra.yml"
+        workflow_file = INFRA_DIR.parent / ".github" / "workflows" / "deploy.yml"
         content = workflow_file.read_text()
 
         assert "Key Vault Secrets User" in content, (
-            "deploy-infra.yml should assign the Key Vault Secrets User role"
+            "deploy.yml should assign the Key Vault Secrets User role"
         )
         assert "az role assignment create" in content, (
-            "deploy-infra.yml should create the role assignment via az CLI"
+            "deploy.yml should create the role assignment via az CLI"
         )
 
     def test_keyvault_all_secrets_defined(self):
