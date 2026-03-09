@@ -1,11 +1,11 @@
 // ai-foundry.bicep
-// param location string
+param location string = 'eastus2'
 param aiResourceName string
 param projectName string
 
 resource aiResource 'Microsoft.CognitiveServices/accounts@2025-06-01' = {
   name: aiResourceName
-  location: 'eastus2'
+  location: location
   kind: 'AIServices'
   identity: {
     type: 'SystemAssigned'
@@ -41,7 +41,7 @@ resource gptDeployment 'Microsoft.CognitiveServices/accounts/deployments@2025-06
 resource aiProject 'Microsoft.CognitiveServices/accounts/projects@2025-06-01' = {
   parent: aiResource
   name: projectName
-  location: 'eastus2'
+  location: location
   identity: {
     type: 'SystemAssigned'
   }

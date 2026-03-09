@@ -2,6 +2,7 @@
 targetScope = 'resourceGroup'
 
 param location string = resourceGroup().location
+param aiLocation string = location
 param prefix string = 'hitachi'
 param deployContainerJob bool = true
 param jobImage string = ''
@@ -26,6 +27,7 @@ module storageModule 'storage.bicep' = {
 module aiModule 'ai-foundry.bicep' = {
   name: 'ai-deployment'
   params: {
+    location: aiLocation
     aiResourceName: '${prefix}-fdy-${uniqueSuffix}'
     projectName: 'hitachi-bi-project'
   }
