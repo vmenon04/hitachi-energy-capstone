@@ -28,7 +28,7 @@ resource gptDeployment 'Microsoft.CognitiveServices/accounts/deployments@2025-06
   properties: {
     model: {
       format: 'OpenAI'
-      name: 'gpt-4o'
+      name: 'gpt-4o' // change to a better model when available
       version: '2024-08-06'
     }
   }
