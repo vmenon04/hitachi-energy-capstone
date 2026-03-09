@@ -11,6 +11,7 @@ on:
     types: [completed]
     branches: [main, development, infrastructure]
   push:
+    branches: [infrastructure, development, main]
     paths:
       - 'src/**'
       - 'Dockerfile'
