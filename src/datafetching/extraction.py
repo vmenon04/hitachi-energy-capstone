@@ -45,7 +45,7 @@ def sharepoint_to_blob(drive_id: str, folder_id: str = "root"):
 
     # Get the list of all files in the specified SharePoint folder (using the drive and folder IDs)
     print(f"Fetching files from SharePoint...")
-    list_url = "https://graph.microsoft.com/v1.0/me/drive/root/children"    
+    list_url = "https://graph.microsoft.com/v1.0/me/drive/root/children"   ##update later with drive_id and folder_id variables
     response = requests.get(list_url, headers = headers)
     print(response.text)  
     response.raise_for_status() # check API call response status
@@ -56,21 +56,23 @@ def sharepoint_to_blob(drive_id: str, folder_id: str = "root"):
     filenames = [file["name"] for file in files if "name" in file]
     print(f"Stored {len(filenames)} filenames for later use.")
 
-    #Loop through all the files in the directory and send the CSV Files to Azure Blob Storage
+    #Loop through all the files in the directory and send the CSV/Excel Files to Azure Blob Storage
     for file in files:
-        # Check the file extension to find CSV files
+        # Check the file extension to find CSVs/Excel files
         # Can add any file extensions to this list later based on what inputs we are expecting.
-        if "file" in file and (file["name"].endswith(".csv") or file["name"].endswith(".CSV")):
+        if "file" in file and (file["name"].endswith(".csv") or file["name"].endswith(".CSV") 
+                               or file["name"].endswith(".xlsx") or file["name"].endswith(".XLSX") 
+                               or file["name"].endswith(".xls") or file["name"].endswith(".XLS")):
             file_name = file["name"]
             file_id = file["id"]
 
-            # Send API call to get the content of the CSV file
+            # Send API call to get the content of the CSV/Excel file
             print(f"Reading {file_name}")
             read_file_url = f"https://graph.microsoft.com/v1.0/drives/{drive_id}/items/{file_id}/content" 
             file_response = requests.get(read_file_url, headers = headers, stream = True) 
             file_response.raise_for_status() # check API call response status
 
-            # Send the content of the CSV file to Azure Blob Storage
+            # Send the content of the CSV/Excel file to Azure Blob Storage
             new_blob = blob_client.get_blob_client(file_name)
             new_blob.upload_blob(file_response.content, overwrite = True)
             print(f"Successfully Read and Transferred {file_name} to Azure Blob Storage")
