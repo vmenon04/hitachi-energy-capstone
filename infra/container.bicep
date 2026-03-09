@@ -101,6 +101,26 @@ resource containerAppJob 'Microsoft.App/jobs@2024-03-01' = if (deployContainerJo
           keyVaultUrl: '${keyVaultUri}secrets/azure-ai-project-endpoint'
           identity: managedIdentityId
         }
+        {
+          name: 'smtp-endpoint'
+          keyVaultUrl: '${keyVaultUri}secrets/smtp-endpoint'
+          identity: managedIdentityId
+        }
+        {
+          name: 'smtp-port'
+          keyVaultUrl: '${keyVaultUri}secrets/smtp-port'
+          identity: managedIdentityId
+        }
+        {
+          name: 'smtp-username'
+          keyVaultUrl: '${keyVaultUri}secrets/smtp-username'
+          identity: managedIdentityId
+        }
+        {
+          name: 'email-from-address'
+          keyVaultUrl: '${keyVaultUri}secrets/email-from-address'
+          identity: managedIdentityId
+        }
       ]
     }
     template: {
@@ -117,6 +137,10 @@ resource containerAppJob 'Microsoft.App/jobs@2024-03-01' = if (deployContainerJo
             { name: 'AZURE_STORAGE_CONTAINER_NAME',    secretRef: 'azure-storage-container-name' }
             { name: 'AZURE_AI_PROJECT_API_KEY',        secretRef: 'azure-ai-project-api-key' }
             { name: 'AZURE_AI_PROJECT_ENDPOINT',       secretRef: 'azure-ai-project-endpoint' }
+            { name: 'SMTP_ENDPOINT',                   secretRef: 'smtp-endpoint' }
+            { name: 'SMTP_PORT',                       secretRef: 'smtp-port' }
+            { name: 'SMTP_USERNAME',                   secretRef: 'smtp-username' }
+            { name: 'EMAIL_FROM_ADDRESS',              secretRef: 'email-from-address' }
           ]
         }
       ]

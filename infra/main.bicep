@@ -33,6 +33,14 @@ module aiModule 'ai-foundry.bicep' = {
   }
 }
 
+module commModule 'communication.bicep' = {
+  name: 'communication-deployment'
+  params: {
+    communicationServiceName: '${prefix}-comm-${uniqueSuffix}'
+    emailServiceName: '${prefix}-email-${uniqueSuffix}'
+  }
+}
+
 module kvModule 'keyvault.bicep' = {
   name: 'keyvault-deployment'
   params: {
@@ -42,6 +50,10 @@ module kvModule 'keyvault.bicep' = {
     storageContainerName: storageModule.outputs.csvContainerName
     aiApiKey: aiModule.outputs.aiApiKey
     aiEndpoint: aiModule.outputs.aiEndpoint
+    smtpEndpoint: commModule.outputs.smtpEndpoint
+    smtpPort: string(commModule.outputs.smtpPort)
+    smtpUsername: commModule.outputs.communicationServiceName
+    emailFromAddress: 'DoNotReply@${commModule.outputs.emailDomainName}'
   }
 }
 
@@ -63,3 +75,6 @@ output storageName string = storageModule.outputs.storageAccountName
 output acrLoginServer string = containerModule.outputs.loginServer
 output keyVaultName string = kvModule.outputs.keyVaultName
 output managedIdentityPrincipalId string = managedIdentity.properties.principalId
+output communicationServiceName string = commModule.outputs.communicationServiceName
+output emailFromAddress string = 'DoNotReply@${commModule.outputs.emailDomainName}'
+output smtpEndpoint string = commModule.outputs.smtpEndpoint
