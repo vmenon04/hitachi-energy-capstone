@@ -1,3 +1,5 @@
+# This workflow validates and deploys infrastructure and application changes to Azure.
+
 name: Deploy to Azure
 
 on:
