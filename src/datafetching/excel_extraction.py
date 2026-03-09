@@ -42,8 +42,9 @@ def sharepoint_to_blob(drive_id: str, folder_id: str = "root"):
 
     # Get the list of all files in the specified SharePoint folder (using the drive and folder IDs)
     print(f"Fetching files from SharePoint...")
-    list_url = f"https://graph.microsoft.com/v1.0/drives/{drive_id}/items/{folder_id}/children" 
-    response = requests.get(list_url, headers = headers) 
+    list_url = "https://graph.microsoft.com/v1.0/me/drive/root/children"    
+    response = requests.get(list_url, headers = headers)
+    print(response.text)  
     response.raise_for_status() # check API call response status
 
     #Loop through all the files in the directory and send the Excel Files to Azure Blob Storage
@@ -67,8 +68,10 @@ def sharepoint_to_blob(drive_id: str, folder_id: str = "root"):
     
     print("Finished Transferring Files from SharePoint folder to Azure Blob Storage")
 
-
 def main():
+    """
+    Sample main function, just to test data transfer for now. 
+    """
     print("hi")
     try:
         # Reading in information from .env file for SharePoint access
@@ -83,7 +86,5 @@ def main():
     except Exception as e:
         print(f"Error in the process: {e}")
         
-        
-
 if __name__ == "__main__":
     main()
