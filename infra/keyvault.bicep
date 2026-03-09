@@ -8,6 +8,10 @@ param storageContainerName string
 @secure()
 param aiApiKey string
 param aiEndpoint string
+param smtpEndpoint string
+param smtpPort string
+param smtpUsername string
+param emailFromAddress string
 
 resource keyVault 'Microsoft.KeyVault/vaults@2023-07-01' = {
   name: keyVaultName
@@ -47,6 +51,30 @@ resource secretAiEndpoint 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = {
   parent: keyVault
   name: 'azure-ai-project-endpoint'
   properties: { value: aiEndpoint }
+}
+
+resource secretSmtpEndpoint 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = {
+  parent: keyVault
+  name: 'smtp-endpoint'
+  properties: { value: smtpEndpoint }
+}
+
+resource secretSmtpPort 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = {
+  parent: keyVault
+  name: 'smtp-port'
+  properties: { value: smtpPort }
+}
+
+resource secretSmtpUsername 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = {
+  parent: keyVault
+  name: 'smtp-username'
+  properties: { value: smtpUsername }
+}
+
+resource secretEmailFromAddress 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = {
+  parent: keyVault
+  name: 'email-from-address'
+  properties: { value: emailFromAddress }
 }
 
 output keyVaultName string = keyVault.name
