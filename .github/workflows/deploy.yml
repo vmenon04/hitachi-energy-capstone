@@ -30,6 +30,7 @@ concurrency:
 env:
   RESOURCE_GROUP: Hitachi-RG
   LOCATION: eastus
+  AI_LOCATION: eastus2
 
 jobs:
   validate:
@@ -158,7 +159,7 @@ jobs:
           az deployment group what-if \
             --resource-group ${{ env.RESOURCE_GROUP }} \
             --template-file infra/main.bicep \
-            --parameters location=${{ env.LOCATION }} deployContainerJob=false
+            --parameters location=${{ env.LOCATION }} aiLocation=${{ env.AI_LOCATION }} deployContainerJob=false
 
       - name: Deploy Core Infrastructure
         id: deploy
@@ -167,7 +168,7 @@ jobs:
           scope: resourcegroup
           resourceGroupName: ${{ env.RESOURCE_GROUP }}
           template: ./infra/main.bicep
-          parameters: location=${{ env.LOCATION }} deployContainerJob=false
+          parameters: location=${{ env.LOCATION }} aiLocation=${{ env.AI_LOCATION }} deployContainerJob=false
 
       - name: Assign Key Vault Secrets User role
         run: |
@@ -246,5 +247,6 @@ jobs:
           template: ./infra/main.bicep
           parameters: >-
             location=${{ env.LOCATION }}
+            aiLocation=${{ env.AI_LOCATION }}
             deployContainerJob=true
             jobImage=${{ steps.acr.outputs.login_server }}/hitachi-app:${{ github.sha }}
