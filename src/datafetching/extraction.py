@@ -9,6 +9,9 @@ load_dotenv()
 STORAGE_CONNECTION_STRING = os.environ.get("AZURE_STORAGE_CONNECTION_STRING")
 STORAGE_CONTAINER_NAME = os.environ.get("AZURE_STORAGE_CONTAINER_NAME")
 
+# Global list to store filenames retrieved from SharePoint
+filenames = []
+
 # Attempt to use Managed Identity instead of having to go through Microsoft Entra ID
 def get_access_token():
     """
@@ -47,10 +50,16 @@ def sharepoint_to_blob(drive_id: str, folder_id: str = "root"):
     print(response.text)  
     response.raise_for_status() # check API call response status
 
-    #Loop through all the files in the directory and send the CSV Files to Azure Blob Storage
+    # Populate the global list with filenames from the response
+    global filenames
     files = response.json().get("value", [])
+    filenames = [file["name"] for file in files if "name" in file]
+    print(f"Stored {len(filenames)} filenames for later use.")
+
+    #Loop through all the files in the directory and send the CSV Files to Azure Blob Storage
     for file in files:
         # Check the file extension to find CSV files
+        # Can add any file extensions to this list later based on what inputs we are expecting.
         if "file" in file and (file["name"].endswith(".csv") or file["name"].endswith(".CSV")):
             file_name = file["name"]
             file_id = file["id"]
