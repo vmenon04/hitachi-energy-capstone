@@ -22,7 +22,7 @@ def get_access_token():
 # Main application logic within this file
 def sharepoint_to_blob(drive_id: str, folder_id: str = "root"):
     """
-    The function transfers all Excel files from SharePoint to the Azure 
+    The function transfers all CSV files from SharePoint to the Azure 
     Blob Storage container using MS Graph API calls
 
     Args: 
@@ -47,21 +47,21 @@ def sharepoint_to_blob(drive_id: str, folder_id: str = "root"):
     print(response.text)  
     response.raise_for_status() # check API call response status
 
-    #Loop through all the files in the directory and send the Excel Files to Azure Blob Storage
+    #Loop through all the files in the directory and send the CSV Files to Azure Blob Storage
     files = response.json().get("value", [])
     for file in files:
-        # Check the file extension to find Excel files
-        if "file" in file and (file["name"].endswith(".xlsx") or file["name"].endswith(".xls") or file["name"].endswith(".XLSX") or file["name"].endswith(".XLS")):
+        # Check the file extension to find CSV files
+        if "file" in file and (file["name"].endswith(".csv") or file["name"].endswith(".CSV")):
             file_name = file["name"]
             file_id = file["id"]
 
-            # Send API call to get the content of the Excel file
+            # Send API call to get the content of the CSV file
             print(f"Reading {file_name}")
             read_file_url = f"https://graph.microsoft.com/v1.0/drives/{drive_id}/items/{file_id}/content" 
             file_response = requests.get(read_file_url, headers = headers, stream = True) 
             file_response.raise_for_status() # check API call response status
 
-            # Send the content of the Excel file to Azure Blob Storage
+            # Send the content of the CSV file to Azure Blob Storage
             new_blob = blob_client.get_blob_client(file_name)
             new_blob.upload_blob(file_response.content, overwrite = True)
             print(f"Successfully Read and Transferred {file_name} to Azure Blob Storage")
