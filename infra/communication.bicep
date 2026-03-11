@@ -35,4 +35,3 @@ output communicationServiceName string = communicationService.name
 output emailServiceId string = emailService.id
 output emailDomainId string = emailDomain.id
 output emailDomainName string = emailDomain.properties.mailFromSenderDomain
-output acsConnectionString string = communicationService.listKeys().primaryConnectionString

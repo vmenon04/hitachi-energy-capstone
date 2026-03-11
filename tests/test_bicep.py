@@ -213,23 +213,22 @@ class TestCommunicationBicep:
             "output emailServiceId",
             "output emailDomainId",
             "output emailDomainName",
-            "output acsConnectionString",
         ]
         for output in required_outputs:
             assert output in content, (
                 f"communication.bicep should have {output}"
             )
 
-    def test_communication_outputs_connection_string(self):
-        """Test that communication.bicep outputs the ACS connection string via listKeys()"""
-        bicep_file = INFRA_DIR / "communication.bicep"
-        content = bicep_file.read_text()
+    def test_main_passes_acs_connection_string_to_keyvault(self):
+        """Test that main.bicep calls listKeys() on the ACS resource and passes it to keyvault"""
+        main_file = INFRA_DIR / "main.bicep"
+        content = main_file.read_text()
 
-        assert "output acsConnectionString" in content, (
-            "communication.bicep should output acsConnectionString"
-        )
         assert "listKeys().primaryConnectionString" in content, (
-            "communication.bicep should derive connection string from listKeys()"
+            "main.bicep should call listKeys() on the ACS resource (not in an output)"
+        )
+        assert "acsConnectionString:" in content, (
+            "main.bicep should pass acsConnectionString to keyvault module"
         )
 
 
