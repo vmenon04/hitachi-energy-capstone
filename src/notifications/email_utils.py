@@ -257,10 +257,26 @@ def send_insights_email(
     )
 
     print(f"\n{'─' * 50}")
-    print(f"Sending insights email")
     print(f"  To      : {to_addr}")
     print(f"  Subject : {subject}")
     print(f"{'─' * 50}")
+
+    # Local dry-run mode: ACS_CONNECTION_STRING unset or set to "local".
+    # Writes the rendered HTML to a temp file instead of calling ACS so
+    # we can preview the email in a browser without needing Azure credentials.
+    if not conn_str or conn_str.strip().lower() == "local":
+        import tempfile
+        tmp = tempfile.NamedTemporaryFile(
+            prefix="hitachi_email_",
+            suffix=".html",
+            delete=False,
+            mode="w",
+            encoding="utf-8",
+        )
+        tmp.write(html_body)
+        tmp.close()
+        print(f"[DRY-RUN] Email not sent. Preview at: file://{tmp.name}\n")
+        return
 
     client = EmailClient.from_connection_string(conn_str)
     message = {
