@@ -94,21 +94,34 @@ jobs:
       - name: Check changed paths
         id: check
         run: |
-          # For workflow_dispatch, assume both changed
+          # workflow_dispatch: always run everything
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             echo "infra-changed=true" >> "$GITHUB_OUTPUT"
             echo "app-changed=true" >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          
-          # For push events, check git diff
-          if git diff --name-only HEAD~1 HEAD | grep -qE '^(infra/|.github/workflows/deploy.yml)'; then
+
+          # Pushes to development or main are typically merge commits whose
+          # diff (HEAD~1..HEAD) only reflects the merge commit itself, not the
+          # files changed in the merged branch. Always deploy everything here.
+          BRANCH="${{ github.ref_name }}"
+          if [ "$BRANCH" = "development" ] || [ "$BRANCH" = "main" ]; then
+            echo "infra-changed=true" >> "$GITHUB_OUTPUT"
+            echo "app-changed=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # For other branches (e.g. infrastructure), use the git diff to
+          # deploy only what actually changed.
+          CHANGED=$(git diff --name-only HEAD~1 HEAD)
+
+          if echo "$CHANGED" | grep -qE '^(infra/|.github/workflows/deploy.yml)'; then
             echo "infra-changed=true" >> "$GITHUB_OUTPUT"
           else
             echo "infra-changed=false" >> "$GITHUB_OUTPUT"
           fi
-          
-          if git diff --name-only HEAD~1 HEAD | grep -qE '^(src/|Dockerfile|requirements.txt|.github/workflows/deploy.yml)'; then
+
+          if echo "$CHANGED" | grep -qE '^(src/|Dockerfile|requirements.txt|.github/workflows/deploy.yml)'; then
             echo "app-changed=true" >> "$GITHUB_OUTPUT"
           else
             echo "app-changed=false" >> "$GITHUB_OUTPUT"
