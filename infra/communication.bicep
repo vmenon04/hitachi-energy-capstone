@@ -27,6 +27,7 @@ resource communicationService 'Microsoft.Communication/communicationServices@202
   location: 'global'
   properties: {
     dataLocation: 'United States'
+    linkedDomains: [emailDomain.id]
   }
 }
 

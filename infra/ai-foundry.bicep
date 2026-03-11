@@ -52,7 +52,7 @@ resource aiProject 'Microsoft.CognitiveServices/accounts/projects@2025-06-01' = 
 }
 
 output aiResourceName string = aiResource.name
-output aiEndpoint string = aiResource.properties.endpoint
+output aiEndpoint string = 'https://${aiResource.properties.customSubDomainName}.openai.azure.com/'
 
 // @secure() masks the value in deployment logs
 @secure()
