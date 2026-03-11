@@ -213,24 +213,23 @@ class TestCommunicationBicep:
             "output emailServiceId",
             "output emailDomainId",
             "output emailDomainName",
-            "output smtpEndpoint",
-            "output smtpPort",
+            "output acsConnectionString",
         ]
         for output in required_outputs:
             assert output in content, (
                 f"communication.bicep should have {output}"
             )
 
-    def test_communication_smtp_configuration(self):
-        """Test that communication.bicep outputs correct SMTP configuration"""
+    def test_communication_outputs_connection_string(self):
+        """Test that communication.bicep outputs the ACS connection string via listKeys()"""
         bicep_file = INFRA_DIR / "communication.bicep"
         content = bicep_file.read_text()
 
-        assert "'smtp.azurecomm.net'" in content, (
-            "communication.bicep should output correct SMTP endpoint"
+        assert "output acsConnectionString" in content, (
+            "communication.bicep should output acsConnectionString"
         )
-        assert "587" in content, (
-            "communication.bicep should output SMTP port 587 (TLS)"
+        assert "listKeys().primaryConnectionString" in content, (
+            "communication.bicep should derive connection string from listKeys()"
         )
 
 
@@ -367,9 +366,7 @@ class TestKeyVaultBicep:
             "azure-storage-container-name",
             "azure-ai-project-api-key",
             "azure-ai-project-endpoint",
-            "smtp-endpoint",
-            "smtp-port",
-            "smtp-username",
+            "acs-connection-string",
             "email-from-address",
         ]
         for secret in expected_secrets:
