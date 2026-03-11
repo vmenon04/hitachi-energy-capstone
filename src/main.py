@@ -105,7 +105,7 @@ def generate_insights(df: pd.DataFrame) -> Optional[str]:
     llm = AzureChatOpenAI(
         azure_endpoint=AI_ENDPOINT,
         api_key=AI_API_KEY,
-        api_version="2024-10-21",
+        api_version="2024-08-06",
         deployment_name=MODEL,
         temperature=0.5
     )
