@@ -3,6 +3,7 @@ anyio==4.12.1
 azure-ai-agents==1.1.0
 azure-ai-inference==1.0.0b9
 azure-ai-projects==1.0.0
+azure-communication-email==1.0.0
 azure-core==1.38.1
 azure-identity==1.25.2
 azure-storage-blob==12.28.0
