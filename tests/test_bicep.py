@@ -105,12 +105,12 @@ class TestMainBicep:
         )
 
     def test_main_passes_acs_to_keyvault(self):
-        """Test that main.bicep passes ACS connection string from communication module to keyvault"""
+        """Test that main.bicep retrieves the ACS connection string via listKeys() and passes it to keyvault"""
         bicep_file = INFRA_DIR / "main.bicep"
         content = bicep_file.read_text()
 
-        assert "commModule.outputs.acsConnectionString" in content, (
-            "main.bicep should pass ACS connection string from communication module to keyvault"
+        assert "listKeys().primaryConnectionString" in content, (
+            "main.bicep should call listKeys() on the ACS existing resource reference"
         )
         assert "commModule.outputs.emailDomainName" in content, (
             "main.bicep should pass email domain name to keyvault"
@@ -191,15 +191,18 @@ class TestCommunicationBicep:
         )
 
     def test_communication_outputs_connection_string(self):
-        """Test that communication.bicep outputs the ACS connection string"""
-        bicep_file = INFRA_DIR / "communication.bicep"
-        content = bicep_file.read_text()
+        """Test that listKeys() is called in main.bicep, not in communication.bicep outputs
+        (Bicep linter forbids secrets in outputs)"""
+        main_file = INFRA_DIR / "main.bicep"
+        comm_file = INFRA_DIR / "communication.bicep"
+        main_content = main_file.read_text()
+        comm_content = comm_file.read_text()
 
-        assert "output acsConnectionString" in content, (
-            "communication.bicep should output the ACS connection string"
+        assert "listKeys().primaryConnectionString" in main_content, (
+            "main.bicep should call listKeys() on the ACS existing resource"
         )
-        assert "listKeys().primaryConnectionString" in content, (
-            "communication.bicep should use listKeys() to retrieve the connection string"
+        assert "listKeys()" not in comm_content, (
+            "communication.bicep must not call listKeys() in outputs (linter rule: outputs-should-not-contain-secrets)"
         )
 
     def test_communication_has_required_outputs(self):
