@@ -73,6 +73,7 @@ module containerModule 'container.bicep' = {
     managedIdentityId: managedIdentity.id
     managedIdentityPrincipalId: managedIdentity.properties.principalId
     keyVaultUri: kvModule.outputs.keyVaultUri
+    emailRecipient: 'hitachiseniordesign@outlook.com'
   }
 }
 

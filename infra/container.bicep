@@ -17,6 +17,7 @@ param replicaCompletionCount int = 1
 param managedIdentityId string
 param managedIdentityPrincipalId string
 param keyVaultUri string
+param emailRecipient string = 'hitachiseniordesign@outlook.com'
 
 resource acr 'Microsoft.ContainerRegistry/registries@2023-07-01' = {
   name: acrName
@@ -131,6 +132,7 @@ resource containerAppJob 'Microsoft.App/jobs@2024-03-01' = if (deployContainerJo
             { name: 'AZURE_AI_PROJECT_ENDPOINT',       secretRef: 'azure-ai-project-endpoint' }
             { name: 'ACS_CONNECTION_STRING',           secretRef: 'acs-connection-string' }
             { name: 'EMAIL_FROM_ADDRESS',              secretRef: 'email-from-address' }
+            { name: 'EMAIL_RECIPIENT',                 value: emailRecipient }
           ]
         }
       ]
