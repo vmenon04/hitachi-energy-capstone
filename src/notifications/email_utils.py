@@ -290,4 +290,5 @@ def send_insights_email(
     }
     poller = client.begin_send(message)
     result = poller.result()
-    print(f"Email delivered successfully. Message ID: {result.message_id}\n")
+    message_id = result.get("id") if isinstance(result, dict) else result.message_id
+    print(f"Email delivered successfully. Message ID: {message_id}\n")
