@@ -1,22 +1,18 @@
 """
-Formats AI-generated insights as a styled HTML email and delivers them via SMTP.
+Formats AI-generated insights as a styled HTML email and delivers them via
+the Azure Communication Services (ACS) Email SDK.
 
-Two local mail back-ends are supported - both listen on port 1025 with no auth:
-
-    1. Python debug server  (prints the raw MIME message to stdout, no daemon needed):
-        python -m aiosmtpd -n -l localhost:1025
-
-    2. MailHog (captures mail with a browser UI at http://localhost:8025):
-        docker run -p 1025:1025 -p 8025:8025 mailhog/mailhog
-        More info at https://github.com/mailhog/MailHog
+Required environment variables (injected from Key Vault by the Container App Job):
+    ACS_CONNECTION_STRING  - ACS resource connection string
+    EMAIL_FROM_ADDRESS     - verified sender address (DoNotReply@<acs-domain>)
+    EMAIL_RECIPIENT        - destination address
 """
 
 import os
-import smtplib
 from datetime import datetime
-from email.mime.multipart import MIMEMultipart
-from email.mime.text import MIMEText
 from typing import Optional
+
+from azure.communication.email import EmailClient
 
 # Markdown to HTML conversion
 try:
@@ -53,9 +49,8 @@ except ImportError:  # pragma: no cover
         return "\n".join(parts)
 
 
-_SMTP_HOST: str = os.getenv("SMTP_HOST", "localhost")
-_SMTP_PORT: int = int(os.getenv("SMTP_PORT", "1025"))
-_EMAIL_SENDER: str = os.getenv("EMAIL_SENDER", "insights@hitachi.local")
+_ACS_CONNECTION_STRING: str = os.getenv("ACS_CONNECTION_STRING", "")
+_EMAIL_SENDER: str = os.getenv("EMAIL_FROM_ADDRESS", "DoNotReply@hitachi.local")
 _EMAIL_RECIPIENT: str = os.getenv("EMAIL_RECIPIENT", "stakeholder@hitachi.local")
 
 
@@ -233,29 +228,25 @@ def send_insights_email(
     subject: Optional[str] = None,
     recipient: Optional[str] = None,
     sender: Optional[str] = None,
-    smtp_host: Optional[str] = None,
-    smtp_port: Optional[int] = None,
+    connection_string: Optional[str] = None,
 ) -> None:
-    """Send an HTML insights email via a local (unauthenticated) SMTP server.
+    """Send an HTML insights email via the ACS Email SDK.
 
     Args:
-        insights_text: Plain-text / Markdown insights from the AI model.
-        csv_name:      Dataset label used in the email body.
-        subject:       Email subject line.
-        recipient:     Destination address  (env: EMAIL_RECIPIENT).
-        sender:        From address          (env: EMAIL_SENDER).
-        smtp_host:     SMTP server hostname  (env: SMTP_HOST,  default localhost).
-        smtp_port:     SMTP server port      (env: SMTP_PORT,  default 1025).
+        insights_text:     Plain-text / Markdown insights from the AI model.
+        csv_name:          Dataset label used in the email body.
+        subject:           Email subject line.
+        recipient:         Destination address  (env: EMAIL_RECIPIENT).
+        sender:            From address          (env: EMAIL_FROM_ADDRESS).
+        connection_string: ACS connection string (env: ACS_CONNECTION_STRING).
     """
-    host = smtp_host or _SMTP_HOST
-    port = smtp_port or _SMTP_PORT
+    conn_str = connection_string or _ACS_CONNECTION_STRING
     from_addr = sender or _EMAIL_SENDER
     to_addr = recipient or _EMAIL_RECIPIENT
     subject = subject or (
         f"AI Business Insights Report \u2013 {datetime.now().strftime('%B %d, %Y')}"
     )
 
-    # Build both parts of the multipart/alternative message
     html_body = build_html_email(insights_text, csv_name=csv_name)
     plain_body = (
         f"AI Business Insights Report\n"
@@ -265,23 +256,22 @@ def send_insights_email(
         f"{insights_text}"
     )
 
-    msg = MIMEMultipart("alternative")
-    msg["Subject"] = subject
-    msg["From"] = from_addr
-    msg["To"] = to_addr
-    
-    # Plain part first - mail clients prefer the last matching part
-    msg.attach(MIMEText(plain_body, "plain", "utf-8"))
-    msg.attach(MIMEText(html_body, "html", "utf-8"))
-
     print(f"\n{'─' * 50}")
     print(f"Sending insights email")
     print(f"  To      : {to_addr}")
     print(f"  Subject : {subject}")
-    print(f"  SMTP    : {host}:{port}")
     print(f"{'─' * 50}")
 
-    with smtplib.SMTP(host, port) as server:
-        server.sendmail(from_addr, [to_addr], msg.as_string())
-
-    print(f"Email delivered successfully.\n")
+    client = EmailClient.from_connection_string(conn_str)
+    message = {
+        "senderAddress": from_addr,
+        "recipients": {"to": [{"address": to_addr}]},
+        "content": {
+            "subject": subject,
+            "plainText": plain_body,
+            "html": html_body,
+        },
+    }
+    poller = client.begin_send(message)
+    result = poller.result()
+    print(f"Email delivered successfully. Message ID: {result.message_id}\n")
