@@ -8,9 +8,8 @@ param storageContainerName string
 @secure()
 param aiApiKey string
 param aiEndpoint string
-param smtpEndpoint string
-param smtpPort string
-param smtpUsername string
+@secure()
+param acsConnectionString string
 param emailFromAddress string
 
 resource keyVault 'Microsoft.KeyVault/vaults@2023-07-01' = {
@@ -53,22 +52,10 @@ resource secretAiEndpoint 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = {
   properties: { value: aiEndpoint }
 }
 
-resource secretSmtpEndpoint 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = {
+resource secretAcsConnectionString 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = {
   parent: keyVault
-  name: 'smtp-endpoint'
-  properties: { value: smtpEndpoint }
-}
-
-resource secretSmtpPort 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = {
-  parent: keyVault
-  name: 'smtp-port'
-  properties: { value: smtpPort }
-}
-
-resource secretSmtpUsername 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = {
-  parent: keyVault
-  name: 'smtp-username'
-  properties: { value: smtpUsername }
+  name: 'acs-connection-string'
+  properties: { value: acsConnectionString }
 }
 
 resource secretEmailFromAddress 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = {

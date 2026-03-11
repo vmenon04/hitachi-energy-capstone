@@ -50,9 +50,7 @@ module kvModule 'keyvault.bicep' = {
     storageContainerName: storageModule.outputs.csvContainerName
     aiApiKey: aiModule.outputs.aiApiKey
     aiEndpoint: aiModule.outputs.aiEndpoint
-    smtpEndpoint: commModule.outputs.smtpEndpoint
-    smtpPort: string(commModule.outputs.smtpPort)
-    smtpUsername: commModule.outputs.communicationServiceName
+    acsConnectionString: commModule.outputs.acsConnectionString
     emailFromAddress: 'DoNotReply@${commModule.outputs.emailDomainName}'
   }
 }
@@ -77,4 +75,3 @@ output keyVaultName string = kvModule.outputs.keyVaultName
 output managedIdentityPrincipalId string = managedIdentity.properties.principalId
 output communicationServiceName string = commModule.outputs.communicationServiceName
 output emailFromAddress string = 'DoNotReply@${commModule.outputs.emailDomainName}'
-output smtpEndpoint string = commModule.outputs.smtpEndpoint

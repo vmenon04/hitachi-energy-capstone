@@ -104,19 +104,13 @@ class TestMainBicep:
             "main.bicep should pass managed identity principalId to keyvault module"
         )
 
-    def test_main_passes_smtp_to_keyvault(self):
-        """Test that main.bicep passes SMTP configuration from communication module to keyvault"""
+    def test_main_passes_acs_to_keyvault(self):
+        """Test that main.bicep passes ACS connection string from communication module to keyvault"""
         bicep_file = INFRA_DIR / "main.bicep"
         content = bicep_file.read_text()
 
-        assert "commModule.outputs.smtpEndpoint" in content, (
-            "main.bicep should pass SMTP endpoint from communication module to keyvault"
-        )
-        assert "commModule.outputs.smtpPort" in content, (
-            "main.bicep should pass SMTP port from communication module to keyvault"
-        )
-        assert "commModule.outputs.communicationServiceName" in content, (
-            "main.bicep should pass communication service name to keyvault"
+        assert "commModule.outputs.acsConnectionString" in content, (
+            "main.bicep should pass ACS connection string from communication module to keyvault"
         )
         assert "commModule.outputs.emailDomainName" in content, (
             "main.bicep should pass email domain name to keyvault"
@@ -132,9 +126,6 @@ class TestMainBicep:
         )
         assert "output emailFromAddress" in content, (
             "main.bicep should output emailFromAddress"
-        )
-        assert "output smtpEndpoint" in content, (
-            "main.bicep should output smtpEndpoint"
         )
 
 
@@ -197,6 +188,18 @@ class TestCommunicationBicep:
 
         assert "Microsoft.Communication/communicationServices@" in content, (
             "communication.bicep should create communication service resource"
+        )
+
+    def test_communication_outputs_connection_string(self):
+        """Test that communication.bicep outputs the ACS connection string"""
+        bicep_file = INFRA_DIR / "communication.bicep"
+        content = bicep_file.read_text()
+
+        assert "output acsConnectionString" in content, (
+            "communication.bicep should output the ACS connection string"
+        )
+        assert "listKeys().primaryConnectionString" in content, (
+            "communication.bicep should use listKeys() to retrieve the connection string"
         )
 
     def test_communication_has_required_outputs(self):
