@@ -51,7 +51,7 @@ except ImportError:  # pragma: no cover
 
 _ACS_CONNECTION_STRING: str = os.getenv("ACS_CONNECTION_STRING", "")
 _EMAIL_SENDER: str = os.getenv("EMAIL_FROM_ADDRESS", "DoNotReply@hitachi.local")
-_EMAIL_RECIPIENT: str = os.getenv("EMAIL_RECIPIENT", "stakeholder@hitachi.local")
+_EMAIL_RECIPIENT: str = os.getenv("EMAIL_RECIPIENT", "hitachiseniordesign@outlook.com")
 
 
 # HTML email template
