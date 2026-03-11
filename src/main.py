@@ -18,7 +18,7 @@ AI_ENDPOINT = os.environ["AZURE_AI_PROJECT_ENDPOINT"]
 AI_API_KEY = os.environ["AZURE_AI_PROJECT_API_KEY"]
 
 CSV_BLOB_NAME = "sample2.csv"
-MODEL = "gpt-4.1-mini"
+MODEL = "gpt-4o"
 
 # Global variable to store the current dataframe for tool access
 current_df = None
@@ -105,7 +105,7 @@ def generate_insights(df: pd.DataFrame) -> Optional[str]:
     llm = AzureChatOpenAI(
         azure_endpoint=AI_ENDPOINT,
         api_key=AI_API_KEY,
-        api_version="2024-10-21",
+        api_version="2024-08-06",
         deployment_name=MODEL,
         temperature=0.5
     )
