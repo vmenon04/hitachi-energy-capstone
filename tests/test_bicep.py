@@ -104,19 +104,13 @@ class TestMainBicep:
             "main.bicep should pass managed identity principalId to keyvault module"
         )
 
-    def test_main_passes_smtp_to_keyvault(self):
-        """Test that main.bicep passes SMTP configuration from communication module to keyvault"""
+    def test_main_passes_acs_to_keyvault(self):
+        """Test that main.bicep retrieves the ACS connection string via listKeys() and passes it to keyvault"""
         bicep_file = INFRA_DIR / "main.bicep"
         content = bicep_file.read_text()
 
-        assert "commModule.outputs.smtpEndpoint" in content, (
-            "main.bicep should pass SMTP endpoint from communication module to keyvault"
-        )
-        assert "commModule.outputs.smtpPort" in content, (
-            "main.bicep should pass SMTP port from communication module to keyvault"
-        )
-        assert "commModule.outputs.communicationServiceName" in content, (
-            "main.bicep should pass communication service name to keyvault"
+        assert "listKeys().primaryConnectionString" in content, (
+            "main.bicep should call listKeys() on the ACS existing resource reference"
         )
         assert "commModule.outputs.emailDomainName" in content, (
             "main.bicep should pass email domain name to keyvault"
@@ -132,9 +126,6 @@ class TestMainBicep:
         )
         assert "output emailFromAddress" in content, (
             "main.bicep should output emailFromAddress"
-        )
-        assert "output smtpEndpoint" in content, (
-            "main.bicep should output smtpEndpoint"
         )
 
 
@@ -199,6 +190,21 @@ class TestCommunicationBicep:
             "communication.bicep should create communication service resource"
         )
 
+    def test_communication_outputs_connection_string(self):
+        """Test that listKeys() is called in main.bicep, not in communication.bicep outputs
+        (Bicep linter forbids secrets in outputs)"""
+        main_file = INFRA_DIR / "main.bicep"
+        comm_file = INFRA_DIR / "communication.bicep"
+        main_content = main_file.read_text()
+        comm_content = comm_file.read_text()
+
+        assert "listKeys().primaryConnectionString" in main_content, (
+            "main.bicep should call listKeys() on the ACS existing resource"
+        )
+        assert "listKeys()" not in comm_content, (
+            "communication.bicep must not call listKeys() in outputs (linter rule: outputs-should-not-contain-secrets)"
+        )
+
     def test_communication_has_required_outputs(self):
         """Test that communication.bicep exposes required outputs"""
         bicep_file = INFRA_DIR / "communication.bicep"
@@ -210,24 +216,22 @@ class TestCommunicationBicep:
             "output emailServiceId",
             "output emailDomainId",
             "output emailDomainName",
-            "output smtpEndpoint",
-            "output smtpPort",
         ]
         for output in required_outputs:
             assert output in content, (
                 f"communication.bicep should have {output}"
             )
 
-    def test_communication_smtp_configuration(self):
-        """Test that communication.bicep outputs correct SMTP configuration"""
-        bicep_file = INFRA_DIR / "communication.bicep"
-        content = bicep_file.read_text()
+    def test_main_passes_acs_connection_string_to_keyvault(self):
+        """Test that main.bicep calls listKeys() on the ACS resource and passes it to keyvault"""
+        main_file = INFRA_DIR / "main.bicep"
+        content = main_file.read_text()
 
-        assert "'smtp.azurecomm.net'" in content, (
-            "communication.bicep should output correct SMTP endpoint"
+        assert "listKeys().primaryConnectionString" in content, (
+            "main.bicep should call listKeys() on the ACS resource (not in an output)"
         )
-        assert "587" in content, (
-            "communication.bicep should output SMTP port 587 (TLS)"
+        assert "acsConnectionString:" in content, (
+            "main.bicep should pass acsConnectionString to keyvault module"
         )
 
 
@@ -364,9 +368,7 @@ class TestKeyVaultBicep:
             "azure-storage-container-name",
             "azure-ai-project-api-key",
             "azure-ai-project-endpoint",
-            "smtp-endpoint",
-            "smtp-port",
-            "smtp-username",
+            "acs-connection-string",
             "email-from-address",
         ]
         for secret in expected_secrets:

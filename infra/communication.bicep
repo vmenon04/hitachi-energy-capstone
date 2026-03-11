@@ -35,5 +35,3 @@ output communicationServiceName string = communicationService.name
 output emailServiceId string = emailService.id
 output emailDomainId string = emailDomain.id
 output emailDomainName string = emailDomain.properties.mailFromSenderDomain
-output smtpEndpoint string = 'smtp.azurecomm.net'
-output smtpPort int = 587 // Standard SMTP port for TLS

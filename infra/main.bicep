@@ -41,6 +41,14 @@ module commModule 'communication.bicep' = {
   }
 }
 
+// Reference the deployed ACS resource to call listKeys() here rather than
+// in an output (outputs-should-not-contain-secrets linter rule).
+// The name must be a compile-time expression; module outputs are not available
+// at deployment start for existing resource references.
+resource commServiceRef 'Microsoft.Communication/communicationServices@2023-04-01' existing = {
+  name: '${prefix}-comm-${uniqueSuffix}'
+}
+
 module kvModule 'keyvault.bicep' = {
   name: 'keyvault-deployment'
   params: {
@@ -50,9 +58,7 @@ module kvModule 'keyvault.bicep' = {
     storageContainerName: storageModule.outputs.csvContainerName
     aiApiKey: aiModule.outputs.aiApiKey
     aiEndpoint: aiModule.outputs.aiEndpoint
-    smtpEndpoint: commModule.outputs.smtpEndpoint
-    smtpPort: string(commModule.outputs.smtpPort)
-    smtpUsername: commModule.outputs.communicationServiceName
+    acsConnectionString: commServiceRef.listKeys().primaryConnectionString
     emailFromAddress: 'DoNotReply@${commModule.outputs.emailDomainName}'
   }
 }
@@ -77,4 +83,3 @@ output keyVaultName string = kvModule.outputs.keyVaultName
 output managedIdentityPrincipalId string = managedIdentity.properties.principalId
 output communicationServiceName string = commModule.outputs.communicationServiceName
 output emailFromAddress string = 'DoNotReply@${commModule.outputs.emailDomainName}'
-output smtpEndpoint string = commModule.outputs.smtpEndpoint
