@@ -1,11 +1,12 @@
 // ai-foundry.bicep
-// param location string
+
+param location string = 'eastus2'
 param aiResourceName string
 param projectName string
 
 resource aiResource 'Microsoft.CognitiveServices/accounts@2025-06-01' = {
   name: aiResourceName
-  location: 'eastus2'
+  location: location
   kind: 'AIServices'
   identity: {
     type: 'SystemAssigned'
@@ -23,17 +24,17 @@ resource aiResource 'Microsoft.CognitiveServices/accounts@2025-06-01' = {
 // deploy the model
 resource gptDeployment 'Microsoft.CognitiveServices/accounts/deployments@2025-06-01' = {
   parent: aiResource
-  name: 'gpt-4.1-mini'
+  name: 'gpt-4o'
   properties: {
     model: {
       format: 'OpenAI'
-      name: 'gpt-4.1-mini'
-      version: '2025-04-14'
+      name: 'gpt-4o' // change to a better model when available
+      version: '2024-08-06'
     }
   }
   sku: {
-    name: 'GlobalStandard'
-    capacity: 1
+    name: 'Standard'
+    capacity: 10
   }
 }
 
@@ -41,7 +42,7 @@ resource gptDeployment 'Microsoft.CognitiveServices/accounts/deployments@2025-06
 resource aiProject 'Microsoft.CognitiveServices/accounts/projects@2025-06-01' = {
   parent: aiResource
   name: projectName
-  location: 'eastus2'
+  location: location
   identity: {
     type: 'SystemAssigned'
   }
