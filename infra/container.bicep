@@ -1,3 +1,5 @@
+// container.bicep
+
 param location string
 param acrName string
 param deployContainerJob bool = true
