@@ -3,7 +3,6 @@ import pandas as pd
 
 def get_tools(dfs: dict):
 
-    df = dfs["Project_Data/issues_and_risks.csv"]
     @tool
     def get_files() -> str:
         """Get a list all CSV filenames that the model has access to
