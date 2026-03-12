@@ -1,7 +1,9 @@
 from langchain.tools import tool
 import pandas as pd
 
-def get_tools(df: pd.DataFrame):
+def get_tools(dfs: dict):
+
+    df = dfs["Project_Data/issues_and_risks.csv"]
 
     @tool
     def get_data_summary() -> str:

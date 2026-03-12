@@ -17,25 +17,31 @@ STORAGE_CONTAINER_NAME = os.environ["AZURE_STORAGE_CONTAINER_NAME"]
 AI_ENDPOINT = os.environ["AZURE_AI_PROJECT_ENDPOINT"]
 AI_API_KEY = os.environ["AZURE_AI_PROJECT_API_KEY"]
 
-CSV_BLOB_NAME = "sample2.csv"
 MODEL = "gpt-4o"
 
 # Global variable to store the current dataframe for tool access
-current_df = None
+current_dfs = {}
 
 def download_csv() -> pd.DataFrame:
     client = BlobServiceClient.from_connection_string(STORAGE_CONNECTION_STRING)
-    blob_client = client.get_blob_client(container=STORAGE_CONTAINER_NAME, blob=CSV_BLOB_NAME)
-    print(f"Downloading {CSV_BLOB_NAME} from {STORAGE_CONTAINER_NAME}...")
-    data = blob_client.download_blob().readall()
-    df = pd.read_csv(io.BytesIO(data))
-    df.columns = df.columns.str.strip()
-    return df
+    container = client.get_container_client(container=STORAGE_CONTAINER_NAME)
+
+    dataFrames = {}
+
+    for blob in container.list_blobs():
+        if blob.name.lower().endswith(".csv"):
+            print(f"Downloading {blob.name} from {STORAGE_CONTAINER_NAME}...")
+            blob_client = container.get_blob_client(blob.name)
+            data = blob_client.download_blob().readall()
+            df = pd.read_csv(io.BytesIO(data))
+            dataFrames[blob.name] = df
+
+    return dataFrames
 
 
 def generate_insights(df: pd.DataFrame) -> Optional[str]:
-    global current_df
-    current_df = df
+    global current_dfs
+    current_dfs = df
     
     # Initialize Azure OpenAI LLM with LangChain
     llm = AzureChatOpenAI(
@@ -47,7 +53,7 @@ def generate_insights(df: pd.DataFrame) -> Optional[str]:
     )
     
     # Bind tools to the model
-    tools = get_tools(current_df)
+    tools = get_tools(current_dfs)
     llm_with_tools = llm.bind_tools(tools)
     
     try:
@@ -148,11 +154,11 @@ def generate_insights(df: pd.DataFrame) -> Optional[str]:
 
 
 def main():
-    df = download_csv()
-    print(f"Loaded {len(df)} rows, {len(df.columns)} columns.\n")
-    insights = generate_insights(df)
+    dfs = download_csv()
+    print(f"Loaded {len(dfs)} CSV files from Blob Storage")
+    insights = generate_insights(dfs)
     if insights:
-        send_insights_email(insights, csv_name=CSV_BLOB_NAME)
+        send_insights_email(insights)
 
 
 if __name__ == "__main__":
