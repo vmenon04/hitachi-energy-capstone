@@ -86,9 +86,10 @@ def generate_insights(df: pd.DataFrame) -> Optional[str]:
                 
                 # Execute each tool call
                 available_tools = {
-                    "get_data_summary": tools[0],
-                    "calculate_column_statistics": tools[1],
-                    "get_column_info": tools[2]
+                    "get_files": tools[0],
+                    "get_data_summary": tools[1],
+                    "calculate_column_statistics": tools[2],
+                    "get_column_info": tools[3]
                 }
                 
                 tool_executed = False

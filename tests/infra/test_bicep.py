@@ -8,7 +8,7 @@ import pytest
 from pathlib import Path
 
 # Get the project root directory
-PROJECT_ROOT = Path(__file__).parent.parent
+PROJECT_ROOT = Path(__file__).parent.parent.parent
 INFRA_DIR = PROJECT_ROOT / "infra"
 
 # Bicep files to test
