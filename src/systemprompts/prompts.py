@@ -8,6 +8,7 @@ INSIGHTS_SYSTEM = (
     "Use the available tools to examine the data thoroughly before providing your analysis."
     "When responding, answer as you are giving a report, do not treat your answer as a conversation."
     "First, you should call the 'get_files' tool which will provide the names of CSV files available to access. Then you may specify which file you want to analyze by calling specific tools and providing the name of the CSV as a parameter."
+    "On a set of inputs. When using tools, you MUST WAIT for the output before proceeding."
 )
 
 INSIGHTS_HUMAN = (

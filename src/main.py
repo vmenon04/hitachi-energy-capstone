@@ -1,26 +1,33 @@
 import os
-import io
-from typing import Optional
+import base64
 import pandas as pd
+import io
+import time
+import logging
 from dotenv import load_dotenv
+from langchain_core.messages import HumanMessage, SystemMessage
+from azure.identity import DefaultAzureCredential
+from langchain_azure_ai.agents import AgentServiceFactory
+from langchain_azure_ai.utils.agents import pretty_print
+from langchain_azure_ai.agents.prebuilt.tools import CodeInterpreterTool
 from azure.storage.blob import BlobServiceClient
 from langchain_openai import AzureChatOpenAI
-from langchain_core.messages import HumanMessage, SystemMessage, ToolMessage
-from notifications.email_utils import send_insights_email
-from systemprompts.prompts import INSIGHTS_SYSTEM, INSIGHTS_HUMAN
+from langchain_core.messages import HumanMessage, SystemMessage
 from tools.tools import get_tools
+from systemprompts.prompts import INSIGHTS_SYSTEM, INSIGHTS_HUMAN
+from typing import Optional
 
 load_dotenv()
+
+logging.getLogger("langchain_azure_ai").setLevel(logging.DEBUG)
+
+# Global variable to store the current dataframe for tool access
+current_dfs: dict[str, pd.DataFrame] = {}
 
 STORAGE_CONNECTION_STRING = os.environ["AZURE_STORAGE_CONNECTION_STRING"]
 STORAGE_CONTAINER_NAME = os.environ["AZURE_STORAGE_CONTAINER_NAME"]
 AI_ENDPOINT = os.environ["AZURE_AI_PROJECT_ENDPOINT"]
 AI_API_KEY = os.environ["AZURE_AI_PROJECT_API_KEY"]
-
-MODEL = "gpt-4o"
-
-# Global variable to store the current dataframe for tool access
-current_dfs = {}
 
 def download_csv() -> pd.DataFrame:
     client = BlobServiceClient.from_connection_string(STORAGE_CONNECTION_STRING)
@@ -43,123 +50,44 @@ def generate_insights(df: pd.DataFrame) -> Optional[str]:
     global current_dfs
     current_dfs = df
     
-    # Initialize Azure OpenAI LLM with LangChain
-    llm = AzureChatOpenAI(
-        azure_endpoint=AI_ENDPOINT,
-        api_key=AI_API_KEY,
-        api_version="2024-12-01-preview",
-        deployment_name=MODEL,
-        temperature=0.5
+    factory = AgentServiceFactory(
+        project_endpoint=AI_ENDPOINT,
+        credential=DefaultAzureCredential(),
     )
-    
-    # Bind tools to the model
+
+    # tools = get_tools(current_dfs) + [CodeInterpreterTool()]
     tools = get_tools(current_dfs)
-    llm_with_tools = llm.bind_tools(tools)
-    
-    try:
-        # Invoke the model with a system message and user query
-        messages = [
-            SystemMessage(content=INSIGHTS_SYSTEM),
-            HumanMessage(content=INSIGHTS_HUMAN),
-        ]
-        
-        print("Generating insights with tool calling...\n")
-        
-        # Agentic loop - continue until model generates text (not just tool calls)
-        max_iterations = 10
-        iteration = 0
-        
-        while iteration < max_iterations:
-            iteration += 1
-            print(f"--- Iteration {iteration} ---")
-            
-            response = llm_with_tools.invoke(messages)
-            messages.append(response)
-            
-            print(f"DEBUG - Finish Reason: {response.response_metadata.get('finish_reason', 'unknown')}")
-            print(f"DEBUG - Has tool_calls: {bool(response.tool_calls)}")
-            print(f"DEBUG - Content length: {len(response.content)}")
-            
-            # Check if the model wants to use tools
-            if response.tool_calls:
-                print(f"AI is calling {len(response.tool_calls)} tools...\n")
-                
-                # Execute each tool call
-                available_tools = {
-                    "get_files": tools[0],
-                    "get_data_summary": tools[1],
-                    "calculate_column_statistics": tools[2],
-                    "get_column_info": tools[3]
-                }
-                
-                tool_executed = False
-                for tool_call in response.tool_calls:
-                    tool_name = tool_call['name']
-                    tool_args = tool_call['args']
-                    print(f"Calling tool: {tool_name} with args: {tool_args}")
-                    
-                    try:
-                        # Execute the tool
-                        tool_function = available_tools[tool_name]
-                        tool_result = tool_function.invoke(tool_args)
-                        print(f"Tool result received ({len(str(tool_result))} chars)\n")
-                        tool_executed = True
-                        
-                        # Add tool result to messages
-                        messages.append(
-                            ToolMessage(
-                                content=str(tool_result),
-                                tool_call_id=tool_call['id']
-                            )
-                        )
-                    except Exception as tool_error:
-                        print(f"Tool execution error: {tool_error}\n")
-                        messages.append(
-                            ToolMessage(
-                                content=f"Error executing tool: {str(tool_error)}",
-                                tool_call_id=tool_call['id']
-                            )
-                        )
-                
-                # If no tools were successfully executed, break to avoid infinite loop
-                if not tool_executed:
-                    print("No tools were successfully executed. Breaking loop.\n")
-                    break
-            else:
-                # Model generated text content without requesting tools
-                print("Model has completed analysis.\n")
-                break
-        
-        # Display final insights
-        print("\n" + "="*50)
-        print("AI Insights:")
-        print("="*50 + "\n")
 
-        # Extract and return the last AI message with content
-        final_insights: Optional[str] = None
-        for msg in reversed(messages):
-            if hasattr(msg, 'content') and msg.content and msg.__class__.__name__ == 'AIMessage':
-                final_insights = msg.content
-                print(final_insights)
-                break
-        else:
-            print("No text response generated from AI model.")
+    agent = factory.create_prompt_agent(
+        name="code-interpreter-agent",
+        model="gpt-4o",
+        instructions=INSIGHTS_SYSTEM,
+        tools=tools,
+    )
 
-        return final_insights
+    def run_agent_with_retry(messages, max_retries=3):
+        """Run the agent with retry logic for transient failures."""
+        for attempt in range(max_retries):
+            try:
+                logging.debug(f"Attempting to invoke agent (attempt {attempt + 1}/{max_retries})")
+                response = agent.invoke({"messages": messages})
+                return response
+            except Exception as e:
+                if "No tool output found" in str(e):
+                    if attempt < max_retries - 1:
+                        logging.warning(f"Tool output missing, retrying after 2s (attempt {attempt + 1}/{max_retries})")
+                        time.sleep(2)
+                        continue
+                raise
 
-    except Exception as e:
-        import traceback
-        print(f"Error: {e}")
-        print(f"Traceback: {traceback.format_exc()}")
-        return None
-
+    messages = [HumanMessage(content=INSIGHTS_HUMAN)]
+    response = run_agent_with_retry(messages=messages, max_retries=10)
+    pretty_print(response)
 
 def main():
     dfs = download_csv()
     print(f"Loaded {len(dfs)} CSV files from Blob Storage")
-    insights = generate_insights(dfs)
-    if insights:
-        send_insights_email(insights)
+    generate_insights(dfs)
 
 
 if __name__ == "__main__":
