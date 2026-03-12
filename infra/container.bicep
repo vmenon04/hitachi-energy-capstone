@@ -14,6 +14,7 @@ param replicaTimeout int = 1800
 param replicaRetryLimit int = 1
 param parallelism int = 1
 param replicaCompletionCount int = 1
+param cronExpression string = '0 8 * * *'
 param managedIdentityId string
 param managedIdentityPrincipalId string
 param keyVaultUri string
@@ -69,10 +70,11 @@ resource containerAppJob 'Microsoft.App/jobs@2024-03-01' = if (deployContainerJo
   properties: {
     environmentId: containerAppEnv.id
     configuration: {
-      triggerType: 'Manual'
+      triggerType: 'Schedule'
       replicaTimeout: replicaTimeout
       replicaRetryLimit: replicaRetryLimit
-      manualTriggerConfig: {
+      scheduleTriggerConfig: {
+        cronExpression: cronExpression
         parallelism: parallelism
         replicaCompletionCount: replicaCompletionCount
       }
