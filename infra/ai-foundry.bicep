@@ -29,7 +29,7 @@ resource gptDeployment 'Microsoft.CognitiveServices/accounts/deployments@2025-06
     model: {
       format: 'OpenAI'
       name: 'gpt-4.1-mini'
-      version: '2024-07-18'
+      version: '2025-04-14'
     }
   }
   sku: {
