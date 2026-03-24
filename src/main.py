@@ -18,7 +18,7 @@ AI_ENDPOINT = os.environ["AZURE_AI_PROJECT_ENDPOINT"]
 AI_API_KEY = os.environ["AZURE_AI_PROJECT_API_KEY"]
 
 CSV_BLOB_NAME = "sample2.csv"
-MODEL = "gpt-4.1-mini"
+MODEL = "gpt-5.4-mini"
 
 # Global variable to store the current dataframe for tool access
 current_df = None
