@@ -17,7 +17,7 @@ STORAGE_CONTAINER_NAME = os.environ["AZURE_STORAGE_CONTAINER_NAME"]
 AI_ENDPOINT = os.environ["AZURE_AI_PROJECT_ENDPOINT"]
 AI_API_KEY = os.environ["AZURE_AI_PROJECT_API_KEY"]
 
-MODEL = "gpt-4o"
+MODEL = "gpt-5.1-mini"
 
 # Global variable to store the current dataframe for tool access
 current_dfs = {}
