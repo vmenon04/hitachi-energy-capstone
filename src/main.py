@@ -1,5 +1,9 @@
 import os
 import io
+import logging
+import sys
+import uuid
+
 from typing import Optional
 import pandas as pd
 from dotenv import load_dotenv
@@ -17,12 +21,51 @@ STORAGE_CONTAINER_NAME = os.environ["AZURE_STORAGE_CONTAINER_NAME"]
 AI_ENDPOINT = os.environ["AZURE_AI_PROJECT_ENDPOINT"]
 AI_API_KEY = os.environ["AZURE_AI_PROJECT_API_KEY"]
 
-MODEL = "gpt-4o"
+CSV_BLOB_NAME = "sample2.csv"
+MODEL = "gpt-5.4-mini"
+
+# module-level values that give each log line context about which job run produced it
+JOB_NAME = os.getenv("CONTAINER_APP_JOB_NAME", "hitachi-job")
+EXECUTION_ID = os.getenv("JOB_EXECUTION_ID", str(uuid.uuid4()))
 
 # Global variable to store the current dataframe for tool access
 current_dfs = {}
 
+# ContextFilter class 
+class ContextFilter(logging.Filter):
+    def filter(self, record: logging.LogRecord) -> bool:
+        record.job_name = JOB_NAME
+        record.execution_id = EXECUTION_ID
+        return True
+
+def setup_logger() -> logging.Logger:
+    logger = logging.getLogger("hitachi_pipeline")
+    logger.setLevel(logging.INFO)
+
+    if not logger.handlers:
+        handler = logging.StreamHandler(sys.stdout)
+        formatter = logging.Formatter(
+            fmt=(
+                "%(asctime)s %(levelname)s %(name)s "
+                "[job=%(job_name)s execution_id=%(execution_id)s] %(message)s"
+            )
+        )
+        handler.setFormatter(formatter)
+        logger.addHandler(handler)
+        logger.addFilter(ContextFilter())
+
+    return logger
+
+logger = setup_logger()
+
 def download_csv() -> pd.DataFrame:
+
+    logger.info(
+        "Downloading CSV from Blob Storage: blob=%s container=%s",
+        CSV_BLOB_NAME,
+        STORAGE_CONTAINER_NAME,
+    )
+
     client = BlobServiceClient.from_connection_string(STORAGE_CONNECTION_STRING)
     container = client.get_container_client(container=STORAGE_CONTAINER_NAME)
 
@@ -30,7 +73,7 @@ def download_csv() -> pd.DataFrame:
 
     for blob in container.list_blobs():
         if blob.name.lower().endswith(".csv"):
-            print(f"Downloading {blob.name} from {STORAGE_CONTAINER_NAME}...")
+            logger.info(f"Downloading {blob.name} from {STORAGE_CONTAINER_NAME}...")
             blob_client = container.get_blob_client(blob.name)
             data = blob_client.download_blob().readall()
             df = pd.read_csv(io.BytesIO(data))
@@ -42,6 +85,8 @@ def download_csv() -> pd.DataFrame:
 def generate_insights(df: pd.DataFrame) -> Optional[str]:
     global current_dfs
     current_dfs = df
+
+    logger.info("Initializing Azure OpenAI client: model=%s", MODEL)
     
     # Initialize Azure OpenAI LLM with LangChain
     llm = AzureChatOpenAI(
@@ -63,7 +108,8 @@ def generate_insights(df: pd.DataFrame) -> Optional[str]:
             HumanMessage(content=INSIGHTS_HUMAN),
         ]
         
-        print("Generating insights with tool calling...\n")
+        #print("Generating insights with tool calling...\n")
+        logger.info("Starting insight generation with tool calls")
         
         # Agentic loop - continue until model generates text (not just tool calls)
         max_iterations = 10
@@ -71,18 +117,31 @@ def generate_insights(df: pd.DataFrame) -> Optional[str]:
         
         while iteration < max_iterations:
             iteration += 1
-            print(f"--- Iteration {iteration} ---")
+            #print(f"--- Iteration {iteration} ---")
+            logger.info("LLM iteration started: iteration=%d", iteration)
             
             response = llm_with_tools.invoke(messages)
             messages.append(response)
             
-            print(f"DEBUG - Finish Reason: {response.response_metadata.get('finish_reason', 'unknown')}")
-            print(f"DEBUG - Has tool_calls: {bool(response.tool_calls)}")
-            print(f"DEBUG - Content length: {len(response.content)}")
+            logger.info(
+                "LLM response received: iteration=%d finish_reason=%s has_tool_calls=%s content_lengt%d",
+                iteration,
+                response.response_metadata.get("finish_reason", "unknown"),
+                bool(response.tool_calls),
+                len(response.content) if response.content else 0,
+            )
+            #print(f"DEBUG - Finish Reason: {response.response_metadata.get('finish_reason', 'unknown')}")
+            #print(f"DEBUG - Has tool_calls: {bool(response.tool_calls)}")
+            #print(f"DEBUG - Content length: {len(response.content)}")
             
             # Check if the model wants to use tools
             if response.tool_calls:
-                print(f"AI is calling {len(response.tool_calls)} tools...\n")
+                #print(f"AI is calling {len(response.tool_calls)} tools...\n")
+                logger.info(
+                    "Executing tool calls: iteration=%d count=%d",
+                    iteration,
+                    len(response.tool_calls),
+                )
                 
                 # Execute each tool call
                 available_tools = {
@@ -96,14 +155,24 @@ def generate_insights(df: pd.DataFrame) -> Optional[str]:
                 for tool_call in response.tool_calls:
                     tool_name = tool_call['name']
                     tool_args = tool_call['args']
-                    print(f"Calling tool: {tool_name} with args: {tool_args}")
-                    
+                    #print(f"Calling tool: {tool_name} with args: {tool_args}")
+                    logger.info(
+                        "Calling tool: name=%s args=%s",
+                        tool_name,
+                        tool_args,
+                    )
                     try:
                         # Execute the tool
                         tool_function = available_tools[tool_name]
                         tool_result = tool_function.invoke(tool_args)
-                        print(f"Tool result received ({len(str(tool_result))} chars)\n")
+                        #print(f"Tool result received ({len(str(tool_result))} chars)\n")
                         tool_executed = True
+
+                        logger.info(
+                            "Tool call completed successfully: name=%s result_length=%d",
+                            tool_name,
+                            len(str(tool_result)),
+                        )
                         
                         # Add tool result to messages
                         messages.append(
@@ -123,44 +192,60 @@ def generate_insights(df: pd.DataFrame) -> Optional[str]:
                 
                 # If no tools were successfully executed, break to avoid infinite loop
                 if not tool_executed:
-                    print("No tools were successfully executed. Breaking loop.\n")
+                    #print("No tools were successfully executed. Breaking loop.\n")
+                    logger.warning("No tool calls executed successfully; breaking loop: iteration=%d",
+                                   iteration)
                     break
             else:
                 # Model generated text content without requesting tools
-                print("Model has completed analysis.\n")
+                #print("Model has completed analysis.\n")
+                logger.info("Model completed analysis without requesting further tool calls")
                 break
         
         # Display final insights
-        print("\n" + "="*50)
-        print("AI Insights:")
-        print("="*50 + "\n")
+        #print("\n" + "="*50)
+        #print("AI Insights:")
+        #print("="*50 + "\n")
 
         # Extract and return the last AI message with content
         final_insights: Optional[str] = None
         for msg in reversed(messages):
             if hasattr(msg, 'content') and msg.content and msg.__class__.__name__ == 'AIMessage':
                 final_insights = msg.content
-                print(final_insights)
+                #print(final_insights)
                 break
+
+        if final_insights:
+            logger.info("Insight generation completed successfully")
         else:
-            print("No text response generated from AI model.")
+            #print("No text response generated from AI model.")
+            logger.warning("No final AI text response was generated")
 
         return final_insights
 
-    except Exception as e:
-        import traceback
-        print(f"Error: {e}")
-        print(f"Traceback: {traceback.format_exc()}")
+    except Exception:
+        logger.exception("Unhandled exception during insight generation")
         return None
 
 
 def main():
-    dfs = download_csv()
-    print(f"Loaded {len(dfs)} CSV files from Blob Storage")
-    insights = generate_insights(dfs)
-    if insights:
-        send_insights_email(insights)
 
+    logger.info("Job started")
+
+    try:
+        dfs = download_csv()
+        logger.info(f"Loaded {len(dfs)} CSV files from Blob Storage")
+        insights = generate_insights(dfs)
+        if insights:
+            logger.info("Sending insights email")
+            send_insights_email(insights, csv_name=CSV_BLOB_NAME)
+            logger.info("Job completed successfully")
+        else:
+            logger.warning("No insights generated; skipping email send")
+    
+    except Exception:
+        logger.exception("Unhandled exception in job entrypoint")
+        raise
 
 if __name__ == "__main__":
     main()
