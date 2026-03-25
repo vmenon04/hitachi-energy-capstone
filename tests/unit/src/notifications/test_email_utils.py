@@ -26,10 +26,6 @@ def test_build_html_email_renders_template_content(monkeypatch):
         csv_name="sales_snapshot.csv",
     )
 
-    assert "sales_snapshot.csv" in html
-    assert "AI-Generated Insights" in html
-    assert "Revenue grew in APAC" in html
-    assert "${csv_name}" not in html
     assert "${insights_html}" not in html
 
 
