@@ -150,7 +150,7 @@ jobs:
         run: az bicep install
 
       - name: Run Bicep tests
-        run: pytest tests/test_bicep.py -v --tb=short
+        run: pytest tests/infra/test_bicep.py -v --tb=short
 
   deploy-infra:
     name: Deploy Infrastructure
