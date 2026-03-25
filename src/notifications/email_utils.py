@@ -12,6 +12,9 @@ import os
 from functools import lru_cache
 from pathlib import Path
 from string import Template
+import base64
+import mimetypes
+from pathlib import Path
 from datetime import datetime
 from typing import Optional
 
@@ -36,7 +39,6 @@ except ImportError:  # pragma: no cover
             if not block:
                 continue
             lines = [l.rstrip() for l in block.splitlines() if l.strip()]
-            # Detect numbered / bullet lists
             is_list = all(
                 l.startswith(tuple("0123456789")) or l.startswith(("-", "*", "•"))
                 for l in lines
@@ -72,16 +74,40 @@ def _load_email_template() -> Template:
     return Template(_TEMPLATE_PATH.read_text(encoding="utf-8"))
 
 
-def build_html_email(insights_text: str, csv_name: str = "data.csv") -> str:
-    """Render insights text (plain text / Markdown) into the full HTML template.
-
-    Args:
-        insights_text: The raw insight string returned by the AI model.
-        csv_name:      Dataset label shown in the email meta-box.
-
-    Returns:
-        A complete HTML document as a string.
+def _build_attachments(attachment_paths: list[str] | None) -> list[dict]:
     """
+    Convert local file paths into ACS attachment payloads.
+    """
+    if not attachment_paths:
+        return []
+
+    attachments = []
+
+    for file_path in attachment_paths:
+        path = Path(file_path)
+        if not path.exists():
+            print(f"[WARN] Attachment not found: {file_path}")
+            continue
+
+        mime_type, _ = mimetypes.guess_type(str(path))
+        mime_type = mime_type or "application/octet-stream"
+
+        with open(path, "rb") as f:
+            encoded_content = base64.b64encode(f.read()).decode("utf-8")
+
+        attachments.append(
+            {
+                "name": path.name,
+                "attachmentType": mime_type,
+                "contentInBase64": encoded_content,
+            }
+        )
+
+    return attachments
+
+
+def build_html_email(insights_text: str, csv_name: str = "data.csv") -> str:
+    """Render insights text (plain text / Markdown) into the full HTML template."""
     date_str = datetime.now().strftime("%B %d, %Y at %H:%M")
     insights_html = _md_to_html(insights_text)
     return _load_email_template().safe_substitute(
@@ -99,17 +125,9 @@ def send_insights_email(
     recipient: Optional[str] = None,
     sender: Optional[str] = None,
     connection_string: Optional[str] = None,
+    attachment_paths: list[str] | None = None,
 ) -> None:
-    """Send an HTML insights email via the ACS Email SDK.
-
-    Args:
-        insights_text:     Plain-text / Markdown insights from the AI model.
-        csv_name:          Dataset label used in the email body.
-        subject:           Email subject line.
-        recipient:         Destination address  (env: EMAIL_RECIPIENT).
-        sender:            From address          (env: EMAIL_FROM_ADDRESS).
-        connection_string: ACS connection string (env: ACS_CONNECTION_STRING).
-    """
+    """Send an HTML insights email via the ACS Email SDK."""
     conn_str = connection_string or _ACS_CONNECTION_STRING
     from_addr = sender or _EMAIL_SENDER
     to_addr = recipient or _EMAIL_RECIPIENT
@@ -123,17 +141,21 @@ def send_insights_email(
         f"Generated: {datetime.now().strftime('%B %d, %Y at %H:%M')}\n"
         f"Dataset:   {csv_name}\n"
         f"{'=' * 60}\n\n"
-        f"{insights_text}"
+        f"{insights_text}\n\n"
+        f"A PDF containing the generated visualizations is attached."
     )
 
+    attachments = _build_attachments(attachment_paths)
+
     print(f"\n{'─' * 50}")
-    print(f"  To      : {to_addr}")
-    print(f"  Subject : {subject}")
+    print(f"  To          : {to_addr}")
+    print(f"  Subject     : {subject}")
+    print(
+        f"  Attachments : "
+        f"{[Path(p).name for p in attachment_paths] if attachment_paths else []}"
+    )
     print(f"{'─' * 50}")
 
-    # Local dry-run mode: ACS_CONNECTION_STRING unset or set to "local".
-    # Writes the rendered HTML to a temp file instead of calling ACS so
-    # we can preview the email in a browser without needing Azure credentials.
     if not conn_str or conn_str.strip().lower() == "local":
         import tempfile
         tmp = tempfile.NamedTemporaryFile(
@@ -145,7 +167,9 @@ def send_insights_email(
         )
         tmp.write(html_body)
         tmp.close()
-        print(f"[DRY-RUN] Email not sent. Preview at: file://{tmp.name}\n")
+        print(f"[DRY-RUN] Email not sent. Preview at: file://{tmp.name}")
+        if attachment_paths:
+            print(f"[DRY-RUN] Attachments prepared: {attachment_paths}\n")
         return
 
     client = EmailClient.from_connection_string(conn_str)
@@ -158,6 +182,10 @@ def send_insights_email(
             "html": html_body,
         },
     }
+
+    if attachments:
+        message["attachments"] = attachments
+
     poller = client.begin_send(message)
     result = poller.result()
     message_id = result.get("id") if isinstance(result, dict) else result.message_id
