@@ -31,6 +31,7 @@ env:
   RESOURCE_GROUP: Hitachi-RG
   LOCATION: eastus
   AI_LOCATION: eastus2
+  AZURE_SUBSCRIPTION_ID: ${{ fromJSON(secrets.AZURE_CREDENTIALS).subscriptionId }}
 
 jobs:
   test:
@@ -138,6 +139,7 @@ jobs:
           type: deployment
           operation: create
           scope: resourceGroup
+          subscription-id: ${{ env.AZURE_SUBSCRIPTION_ID }}
           resource-group-name: ${{ env.RESOURCE_GROUP }}
           template-file: ./infra/main.bicep
           parameters: |
