@@ -140,10 +140,10 @@ jobs:
           scope: resourceGroup
           resource-group-name: ${{ env.RESOURCE_GROUP }}
           template-file: ./infra/main.bicep
-          parameters: >
-            location=${{ env.LOCATION }}
-            aiLocation=${{ env.AI_LOCATION }}
-            deployContainerJob=false
+          parameters: |
+            location: ${{ env.LOCATION }}
+            aiLocation: ${{ env.AI_LOCATION }}
+            deployContainerJob: false
 
 
       - name: Assign Key Vault Secrets User role
@@ -224,8 +224,8 @@ jobs:
           scope: resourceGroup
           resource-group-name: ${{ env.RESOURCE_GROUP }}
           template-file: ./infra/main.bicep
-          parameters: >
-            location=${{ env.LOCATION }}
-            aiLocation=${{ env.AI_LOCATION }}
-            deployContainerJob=true
-            jobImage=${{ steps.acr.outputs.login_server }}/hitachi-app:${{ github.sha }}
+          parameters: |
+            location: ${{ env.LOCATION }}
+            aiLocation: ${{ env.AI_LOCATION }}
+            deployContainerJob: true
+            jobImage: ${{ steps.acr.outputs.login_server }}/hitachi-app:${{ github.sha }}
