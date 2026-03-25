@@ -11,7 +11,7 @@ on:
       - 'src/**'
       - 'Dockerfile'
       - 'requirements.txt'
-      - 'tests/test_bicep.py'
+      - 'tests/infra/test_bicep.py'
       - '.github/workflows/deploy.yml'
   pull_request:
     branches: [development, main]
@@ -73,7 +73,7 @@ jobs:
 
       - name: Run Bicep tests
         if: steps.changes.outputs.infra-changed == 'true'
-        run: pytest tests/test_bicep.py -v --tb=short
+        run: pytest tests/infra/test_bicep.py -v --tb=short
 
       - name: Build Docker image (validation only)
         if: steps.changes.outputs.app-changed == 'true'
