@@ -11,7 +11,7 @@ on:
       - 'src/**'
       - 'Dockerfile'
       - 'requirements.txt'
-      - 'tests/infra/test_bicep.py'
+      - 'tests/**'
       - '.github/workflows/deploy.yml'
   pull_request:
     branches: [development, main]
@@ -34,7 +34,7 @@ env:
 
 jobs:
   test:
-    name: Run Tests
+    name: Run All Tests (before deployment)
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
