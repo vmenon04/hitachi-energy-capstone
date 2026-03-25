@@ -1,0 +1,53 @@
+# Runs unit tests on feature branch pushes and PRs.
+# The full test suite is handled exclusively by deploy.yml on development, main, and infrastructure.
+
+name: Run Unit Tests
+ 
+on:
+  push:
+    branches-ignore: [development, main, infrastructure]
+  pull_request:
+    branches: [development, main]
+
+permissions:
+  contents: read
+  pull-requests: write
+ 
+jobs:
+  test:
+    name: Run Unit Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+ 
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+ 
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+ 
+      - name: Run unit tests
+        run: pytest tests/unit/ -v --tb=short --cov=src --cov-report=xml
+
+      - name: Post coverage comment
+        uses: actions/github-script@v7
+        if: github.event_name == 'pull_request'
+        with:
+          script: |
+            const fs = require('fs');
+            const coverage = fs.readFileSync('coverage.xml', 'utf8');
+            const match = coverage.match(/line-rate="([0-9.]+)"/);
+            const pct = match ? (parseFloat(match[1]) * 100).toFixed(1) : 'unknown';
+            await github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `### Coverage Report\n\n📊 **${pct}%** line coverage`
+            });
+    
