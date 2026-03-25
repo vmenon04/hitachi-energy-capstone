@@ -1,6 +1,6 @@
 # Runs unit tests on feature branch pushes and PRs.
 # The full test suite is handled exclusively by deploy.yml on development, main, and infrastructure.
- 
+
 name: Run Unit Tests
  
 on:
@@ -8,6 +8,10 @@ on:
     branches-ignore: [development, main, infrastructure]
   pull_request:
     branches: [development, main]
+
+permissions:
+  contents: read
+  pull-requests: write
  
 jobs:
   test:
@@ -29,4 +33,11 @@ jobs:
           pip install -r requirements.txt
  
       - name: Run unit tests
-        run: pytest tests/unit/ -v --tb=short
+        run: pytest tests/unit/ -v --tb=short --cov=src --cov-report=xml
+    
+      - name: Post coverage comment
+        uses: py-cov-action/python-coverage-comment-action@v3
+        with:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    
