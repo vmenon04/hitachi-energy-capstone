@@ -20,7 +20,7 @@ on:
       - 'src/**'
       - 'Dockerfile'
       - 'requirements.txt'
-      - 'tests/test_bicep.py'
+      - 'tests/infra/test_bicep.py'
       - '.github/workflows/deploy.yml'
 
 concurrency:
