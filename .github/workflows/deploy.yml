@@ -224,6 +224,7 @@ jobs:
           type: deployment
           operation: create
           scope: resourceGroup
+          subscription-id: ${{ env.AZURE_SUBSCRIPTION_ID }}
           resource-group-name: ${{ env.RESOURCE_GROUP }}
           template-file: ./infra/main.bicep
           parameters: |
