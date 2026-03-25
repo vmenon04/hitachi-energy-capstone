@@ -267,14 +267,14 @@ def build_visualization_pdf(
     )
     story.append(Spacer(1, 0.2 * inch))
 
-    if insights_text:
-        story.append(Paragraph("AI Summary", heading_style))
-        for block in insights_text.split("\n\n"):
-            clean_block = block.strip().replace("\n", "<br/>")
-            if clean_block:
-                story.append(Paragraph(clean_block, body_style))
-                story.append(Spacer(1, 0.12 * inch))
-        story.append(PageBreak())
+    # if insights_text:
+    #     story.append(Paragraph("AI Summary", heading_style))
+    #     for block in insights_text.split("\n\n"):
+    #         clean_block = block.strip().replace("\n", "<br/>")
+    #         if clean_block:
+    #             story.append(Paragraph(clean_block, body_style))
+    #             story.append(Spacer(1, 0.12 * inch))
+    #     story.append(PageBreak())
 
     if not chart_entries:
         story.append(
