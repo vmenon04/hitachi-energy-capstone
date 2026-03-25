@@ -6,12 +6,12 @@ import uuid
 import json
 
 from pathlib import Path
-from typing import Optional
 import pandas as pd
 from dotenv import load_dotenv
 from azure.storage.blob import BlobServiceClient
 from langchain_openai import AzureChatOpenAI
-from langchain_core.messages import HumanMessage, SystemMessage, ToolMessage
+from langchain_core.messages import HumanMessage, SystemMessage
+from langchain.agents import create_agent
 
 from notifications.email_utils import send_insights_email
 from systemprompts.prompts import (
@@ -109,10 +109,9 @@ def download_csv() -> dict[str, pd.DataFrame]:
 
     return dataframes
 
-
-def generate_insights(df: dict[str, pd.DataFrame]) -> Optional[str]:
+def generate_insights(data: dict[str, pd.DataFrame]):
     global current_dfs
-    current_dfs = df
+    current_dfs = data
 
     logger.info("Initializing Azure OpenAI client: model=%s", MODEL)
 
@@ -125,112 +124,18 @@ def generate_insights(df: dict[str, pd.DataFrame]) -> Optional[str]:
     )
 
     tools = get_tools(current_dfs)
-    llm_with_tools = llm.bind_tools(tools)
 
-    try:
-        messages = [
-            SystemMessage(content=INSIGHTS_SYSTEM),
-            HumanMessage(content=INSIGHTS_HUMAN),
-        ]
+    logger.info("Creating agent")
+    agent = create_agent(llm, 
+                         tools=tools, 
+                         system_prompt=INSIGHTS_SYSTEM, 
+                         name="basic-agent"
+    )
+    messages = [HumanMessage(content=INSIGHTS_HUMAN)]
 
-        logger.info("Starting insight generation with tool calls")
-
-        max_iterations = 10
-        iteration = 0
-
-        while iteration < max_iterations:
-            iteration += 1
-            log_iteration(iteration)
-            logger.info("LLM iteration started")
-
-            response = llm_with_tools.invoke(messages)
-            messages.append(response)
-
-            logger.info(
-                "LLM response received: iteration=%d finish_reason=%s has_tool_calls=%s content_length=%d",
-                iteration,
-                response.response_metadata.get("finish_reason", "unknown"),
-                bool(response.tool_calls),
-                len(response.content) if response.content else 0,
-            )
-
-            if response.tool_calls:
-                logger.info(
-                    "Executing tool calls: iteration=%d count=%d",
-                    iteration,
-                    len(response.tool_calls),
-                )
-
-                available_tools = {
-                    "get_files": tools[0],
-                    "get_data_summary": tools[1],
-                    "calculate_column_statistics": tools[2],
-                    "get_column_info": tools[3]
-                }
-
-                tool_executed = False
-                for tool_call in response.tool_calls:
-                    tool_name = tool_call["name"]
-                    tool_args = tool_call["args"]
-
-                    logger.info(
-                        "Calling tool: name=%s args=%s",
-                        tool_name,
-                        tool_args,
-                    )
-                    try:
-                        tool_function = available_tools[tool_name]
-                        tool_result = tool_function.invoke(tool_args)
-                        tool_executed = True
-
-                        logger.info(
-                            "Tool call completed successfully: name=%s result_length=%d",
-                            tool_name,
-                            len(str(tool_result)),
-                        )
-
-                        messages.append(
-                            ToolMessage(
-                                content=str(tool_result),
-                                tool_call_id=tool_call["id"]
-                            )
-                        )
-                    except Exception as tool_error:
-                        logger.exception("Tool execution error: %s", tool_error)
-                        messages.append(
-                            ToolMessage(
-                                content=f"Error executing tool: {str(tool_error)}",
-                                tool_call_id=tool_call["id"]
-                            )
-                        )
-
-                if not tool_executed:
-                    logger.warning(
-                        "No tool calls executed successfully; breaking loop: iteration=%d",
-                        iteration
-                    )
-                    break
-            else:
-                logger.info("Model completed analysis without requesting further tool calls")
-                break
-
-        final_insights: Optional[str] = None
-        for msg in reversed(messages):
-            if hasattr(msg, "content") and msg.content and msg.__class__.__name__ == "AIMessage":
-                final_insights = msg.content
-                break
-
-        if final_insights:
-            logger.info("Insight generation completed successfully")
-        else:
-            logger.warning("No final AI text response was generated")
-
-        return final_insights
-
-    except Exception:
-        logger.exception("Unhandled exception during insight generation")
-        return None
-
+    logger.info("Starting insight generation with tool calls")
+    result = agent.invoke({"messages": messages})
+    return result
 
 def build_dataset_metadata(dfs: dict[str, pd.DataFrame]) -> str:
     lines = []
