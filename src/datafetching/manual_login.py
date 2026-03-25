@@ -44,6 +44,7 @@ def manual_login():
         print(flow["message"])
         print("\n")
     else:
+        # Error handling if the manual login prompt is not given to the user.
         raise Exception(f"Could not initiate device flow: {flow.get('error_description', 'Unknown error')}")
 
     # waits for user to log in, and then returns the access and refresh tokens.    
@@ -55,6 +56,8 @@ def manual_login():
             f.write(cache.serialize())
         print(f"\nAuthentication successful! The cache file now has the refresh tokens necessary to use MS Graph-API.")
     else:
+        # Error handling if the token is not acquired from the account. 
+        # Most likely if the Azure App Registration is not done properly.
         error_msg = result.get("error_description") if result else "Unknown error"
         print(f"\nERROR: Could not acquire token: {error_msg}")
 
