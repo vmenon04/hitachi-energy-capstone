@@ -2,6 +2,7 @@
 targetScope = 'resourceGroup'
 
 param location string = resourceGroup().location
+param aiLocation string = location
 param prefix string = 'hitachi'
 param deployContainerJob bool = true
 param jobImage string = ''
@@ -26,9 +27,26 @@ module storageModule 'storage.bicep' = {
 module aiModule 'ai-foundry.bicep' = {
   name: 'ai-deployment'
   params: {
+    location: aiLocation
     aiResourceName: '${prefix}-fdy-${uniqueSuffix}'
     projectName: 'hitachi-bi-project'
   }
+}
+
+module commModule 'communication.bicep' = {
+  name: 'communication-deployment'
+  params: {
+    communicationServiceName: '${prefix}-comm-${uniqueSuffix}'
+    emailServiceName: '${prefix}-email-${uniqueSuffix}'
+  }
+}
+
+// Reference the deployed ACS resource to call listKeys() here rather than
+// in an output (outputs-should-not-contain-secrets linter rule).
+// The name must be a compile-time expression; module outputs are not available
+// at deployment start for existing resource references.
+resource commServiceRef 'Microsoft.Communication/communicationServices@2023-04-01' existing = {
+  name: '${prefix}-comm-${uniqueSuffix}'
 }
 
 module kvModule 'keyvault.bicep' = {
@@ -40,6 +58,8 @@ module kvModule 'keyvault.bicep' = {
     storageContainerName: storageModule.outputs.csvContainerName
     aiApiKey: aiModule.outputs.aiApiKey
     aiEndpoint: aiModule.outputs.aiEndpoint
+    acsConnectionString: commServiceRef.listKeys().primaryConnectionString
+    emailFromAddress: 'DoNotReply@${commModule.outputs.emailDomainName}'
   }
 }
 
@@ -53,6 +73,7 @@ module containerModule 'container.bicep' = {
     managedIdentityId: managedIdentity.id
     managedIdentityPrincipalId: managedIdentity.properties.principalId
     keyVaultUri: kvModule.outputs.keyVaultUri
+    emailRecipient: 'hitachiseniordesign@outlook.com'
   }
 }
 
@@ -61,3 +82,5 @@ output storageName string = storageModule.outputs.storageAccountName
 output acrLoginServer string = containerModule.outputs.loginServer
 output keyVaultName string = kvModule.outputs.keyVaultName
 output managedIdentityPrincipalId string = managedIdentity.properties.principalId
+output communicationServiceName string = commModule.outputs.communicationServiceName
+output emailFromAddress string = 'DoNotReply@${commModule.outputs.emailDomainName}'

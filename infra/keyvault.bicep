@@ -1,3 +1,5 @@
+// keyvault.bicep
+
 param location string
 param keyVaultName string
 
@@ -8,6 +10,9 @@ param storageContainerName string
 @secure()
 param aiApiKey string
 param aiEndpoint string
+@secure()
+param acsConnectionString string
+param emailFromAddress string
 
 resource keyVault 'Microsoft.KeyVault/vaults@2023-07-01' = {
   name: keyVaultName
@@ -47,6 +52,18 @@ resource secretAiEndpoint 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = {
   parent: keyVault
   name: 'azure-ai-project-endpoint'
   properties: { value: aiEndpoint }
+}
+
+resource secretAcsConnectionString 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = {
+  parent: keyVault
+  name: 'acs-connection-string'
+  properties: { value: acsConnectionString }
+}
+
+resource secretEmailFromAddress 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = {
+  parent: keyVault
+  name: 'email-from-address'
+  properties: { value: emailFromAddress }
 }
 
 output keyVaultName string = keyVault.name

@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>AI Business Insights Report</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;1,9..40,300&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #f4f2ef;
+      --paper: #faf9f7;
+      --ink: #18181a;
+      --ink-secondary: #4a4a50;
+      --muted: #9090a0;
+      --line: rgba(0,0,0,0.08);
+      --accent: #c0392b;
+      --accent-dim: rgba(192,57,43,0.08);
+      --gold: #9a7d52;
+      --gold-light: rgba(154,125,82,0.15);
+    }
+
+    *, *::before, *::after { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      padding: 40px 16px 60px;
+      background: var(--bg);
+      font-family: "DM Sans", system-ui, sans-serif;
+      color: var(--ink);
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .shell {
+      max-width: 680px;
+      margin: 0 auto;
+      background: var(--paper);
+      border: 1px solid var(--line);
+      box-shadow:
+        0 1px 2px rgba(0,0,0,0.04),
+        0 8px 24px rgba(0,0,0,0.06),
+        0 32px 64px rgba(0,0,0,0.04);
+    }
+
+    /* ── HEADER ── */
+    .header {
+      padding: 48px 52px 44px;
+      border-bottom: 1px solid var(--line);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .header::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background:
+        linear-gradient(135deg, rgba(192,57,43,0.04) 0%, transparent 60%),
+        radial-gradient(ellipse 80% 60% at 110% -10%, rgba(154,125,82,0.1) 0%, transparent 70%);
+      pointer-events: none;
+    }
+
+    .header h1 {
+      margin: 0 0 16px;
+      font-family: "DM Serif Display", Georgia, serif;
+      font-size: 34px;
+      font-weight: 400;
+      line-height: 1.2;
+      letter-spacing: -0.3px;
+      color: var(--ink);
+    }
+
+    .header-meta {
+      font-size: 13px;
+      color: var(--muted);
+      font-weight: 300;
+      letter-spacing: 0.1px;
+    }
+
+    /* ── SECTIONS ── */
+    .section {
+      padding: 32px 52px;
+      border-top: 1px solid var(--line);
+    }
+
+    .section-label {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin: 0 0 20px;
+      font-size: 10px;
+      letter-spacing: 2.2px;
+      text-transform: uppercase;
+      color: var(--muted);
+      font-weight: 500;
+    }
+
+    .section-label::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--line);
+    }
+
+    /* ── INSIGHTS ── */
+    .insights {
+      font-size: 14.5px;
+      line-height: 1.78;
+      color: var(--ink-secondary);
+    }
+
+    .insights p { margin: 0 0 16px; }
+    .insights p:last-child { margin-bottom: 0; }
+
+    .insights h1,
+    .insights h2,
+    .insights h3 {
+      font-family: "DM Serif Display", Georgia, serif;
+      font-weight: 400;
+      color: var(--ink);
+      margin: 28px 0 10px;
+    }
+
+    .insights h1 { font-size: 22px; }
+    .insights h2 { font-size: 18px; }
+    .insights h3 { font-size: 15px; letter-spacing: 0.1px; }
+
+    .insights ul,
+    .insights ol {
+      padding-left: 20px;
+      margin: 0 0 16px;
+    }
+
+    .insights li {
+      margin-bottom: 8px;
+    }
+
+    .insights strong {
+      color: var(--ink);
+      font-weight: 500;
+    }
+
+    .insights em {
+      font-style: italic;
+      color: var(--ink-secondary);
+    }
+
+    .insights a {
+      color: var(--accent);
+      text-decoration: none;
+      border-bottom: 1px solid rgba(192,57,43,0.25);
+    }
+
+    .insights code {
+      font-family: "Fira Code", "Cascadia Code", monospace;
+      font-size: 12.5px;
+      background: rgba(0,0,0,0.04);
+      padding: 2px 6px;
+      border-radius: 3px;
+      color: var(--ink);
+    }
+
+    .insights blockquote {
+      margin: 20px 0;
+      padding: 16px 20px;
+      border-left: 2px solid var(--gold);
+      background: var(--gold-light);
+      border-radius: 0 4px 4px 0;
+      font-style: italic;
+      color: var(--ink-secondary);
+    }
+
+    /* ── FOOTER ── */
+    .footer {
+      padding: 20px 52px;
+      border-top: 1px solid var(--line);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+    }
+
+    .footer-text {
+      font-size: 11.5px;
+      color: var(--muted);
+      font-weight: 300;
+      letter-spacing: 0.1px;
+    }
+
+    .footer-mark {
+      width: 24px;
+      height: 24px;
+      border: 1px solid var(--line);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .footer-mark svg {
+      width: 10px;
+      height: 10px;
+      fill: none;
+      stroke: var(--muted);
+      stroke-width: 1.5;
+    }
+
+    /* ── RESPONSIVE ── */
+    @media (max-width: 600px) {
+      body { padding: 0 0 40px; }
+
+      .shell {
+        box-shadow: none;
+        border-left: none;
+        border-right: none;
+      }
+
+      .header,
+      .section,
+      .footer {
+        padding-left: 24px;
+        padding-right: 24px;
+      }
+
+      .header { padding-top: 36px; padding-bottom: 32px; }
+      .header h1 { font-size: 26px; }
+
+      .meta-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .meta-label {
+        border-right: none;
+        border-bottom: 1px solid var(--line) !important;
+        padding-bottom: 6px;
+      }
+
+      .meta-value {
+        padding-top: 6px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+
+    <div class="header">
+      <h1>AI Business<br>Insights Report</h1>
+      <p class="header-meta">Generated ${date_str}</p>
+    </div>
+
+    <div class="section">
+      <div class="insights">
+        ${insights_html}
+      </div>
+    </div>
+
+    <div class="footer">
+      <span class="footer-text">Automated message from the Hitachi #2 Senior Design Team. This mailbox is not monitored.</span>
+      <div class="footer-mark">
+        <svg viewBox="0 0 12 12"><circle cx="6" cy="6" r="4.5"/></svg>
+      </div>
+    </div>
+
+  </div>
+</body>
+</html>

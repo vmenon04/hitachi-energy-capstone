@@ -1,3 +1,5 @@
+// container.bicep
+
 param location string
 param acrName string
 param deployContainerJob bool = true
@@ -12,9 +14,11 @@ param replicaTimeout int = 1800
 param replicaRetryLimit int = 1
 param parallelism int = 1
 param replicaCompletionCount int = 1
+param cronExpression string = '0 8 * * *'
 param managedIdentityId string
 param managedIdentityPrincipalId string
 param keyVaultUri string
+param emailRecipient string = 'hitachiseniordesign@outlook.com'
 
 resource acr 'Microsoft.ContainerRegistry/registries@2023-07-01' = {
   name: acrName
@@ -66,10 +70,11 @@ resource containerAppJob 'Microsoft.App/jobs@2024-03-01' = if (deployContainerJo
   properties: {
     environmentId: containerAppEnv.id
     configuration: {
-      triggerType: 'Manual'
+      triggerType: 'Schedule'
       replicaTimeout: replicaTimeout
       replicaRetryLimit: replicaRetryLimit
-      manualTriggerConfig: {
+      scheduleTriggerConfig: {
+        cronExpression: cronExpression
         parallelism: parallelism
         replicaCompletionCount: replicaCompletionCount
       }
@@ -101,6 +106,16 @@ resource containerAppJob 'Microsoft.App/jobs@2024-03-01' = if (deployContainerJo
           keyVaultUrl: '${keyVaultUri}secrets/azure-ai-project-endpoint'
           identity: managedIdentityId
         }
+        {
+          name: 'acs-connection-string'
+          keyVaultUrl: '${keyVaultUri}secrets/acs-connection-string'
+          identity: managedIdentityId
+        }
+        {
+          name: 'email-from-address'
+          keyVaultUrl: '${keyVaultUri}secrets/email-from-address'
+          identity: managedIdentityId
+        }
       ]
     }
     template: {
@@ -117,6 +132,9 @@ resource containerAppJob 'Microsoft.App/jobs@2024-03-01' = if (deployContainerJo
             { name: 'AZURE_STORAGE_CONTAINER_NAME',    secretRef: 'azure-storage-container-name' }
             { name: 'AZURE_AI_PROJECT_API_KEY',        secretRef: 'azure-ai-project-api-key' }
             { name: 'AZURE_AI_PROJECT_ENDPOINT',       secretRef: 'azure-ai-project-endpoint' }
+            { name: 'ACS_CONNECTION_STRING',           secretRef: 'acs-connection-string' }
+            { name: 'EMAIL_FROM_ADDRESS',              secretRef: 'email-from-address' }
+            { name: 'EMAIL_RECIPIENT',                 value: emailRecipient }
           ]
         }
       ]

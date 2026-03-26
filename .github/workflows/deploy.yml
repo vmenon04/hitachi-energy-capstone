@@ -11,7 +11,7 @@ on:
       - 'src/**'
       - 'Dockerfile'
       - 'requirements.txt'
-      - 'tests/test_bicep.py'
+      - 'tests/**'
       - '.github/workflows/deploy.yml'
   pull_request:
     branches: [development, main]
@@ -20,7 +20,7 @@ on:
       - 'src/**'
       - 'Dockerfile'
       - 'requirements.txt'
-      - 'tests/test_bicep.py'
+      - 'tests/**'
       - '.github/workflows/deploy.yml'
 
 concurrency:
@@ -30,52 +30,35 @@ concurrency:
 env:
   RESOURCE_GROUP: Hitachi-RG
   LOCATION: eastus
+  AI_LOCATION: eastus2
+  AZURE_SUBSCRIPTION_ID: ${{ fromJSON(secrets.AZURE_CREDENTIALS).subscriptionId }}
 
 jobs:
-  validate:
-    name: Validate Changes
-    if: github.event_name == 'pull_request'
+  test:
+    name: Run All Tests (before deployment)
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 2
-      
+      - uses: actions/checkout@v5
+ 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: '3.11'
           cache: 'pip'
-
+ 
       - name: Install Python dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-
-      - name: Install Azure CLI and Bicep
+ 
+      - name: Install Bicep
         run: az bicep install
-
-      - name: Check what changed
-        id: changes
-        run: |
-          if git diff --name-only origin/${{ github.base_ref }}...HEAD | grep -q '^infra/'; then
-            echo "infra-changed=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "infra-changed=false" >> "$GITHUB_OUTPUT"
-          fi
-          if git diff --name-only origin/${{ github.base_ref }}...HEAD | grep -qE '^(src/|Dockerfile|requirements.txt)'; then
-            echo "app-changed=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "app-changed=false" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Run Bicep tests
-        if: steps.changes.outputs.infra-changed == 'true'
-        run: pytest tests/test_bicep.py -v --tb=short
-
+ 
+      - name: Run all tests
+        run: pytest tests/ -v --tb=short
+ 
       - name: Build Docker image (validation only)
-        if: steps.changes.outputs.app-changed == 'true'
         run: docker build -t hitachi-app:pr-${{ github.sha }} .
 
   check-paths:
@@ -86,70 +69,58 @@ jobs:
       infra-changed: ${{ steps.check.outputs.infra-changed }}
       app-changed: ${{ steps.check.outputs.app-changed }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 2
       
       - name: Check changed paths
         id: check
         run: |
-          # For workflow_dispatch, assume both changed
+          # workflow_dispatch: always run everything
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             echo "infra-changed=true" >> "$GITHUB_OUTPUT"
             echo "app-changed=true" >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          
-          # For push events, check git diff
-          if git diff --name-only HEAD~1 HEAD | grep -qE '^(infra/|.github/workflows/deploy.yml)'; then
+
+          # Pushes to development or main are typically merge commits whose
+          # diff (HEAD~1..HEAD) only reflects the merge commit itself, not the
+          # files changed in the merged branch. Always deploy everything here.
+          BRANCH="${{ github.ref_name }}"
+          if [ "$BRANCH" = "development" ] || [ "$BRANCH" = "main" ]; then
+            echo "infra-changed=true" >> "$GITHUB_OUTPUT"
+            echo "app-changed=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # For other branches (e.g. infrastructure), use the git diff to
+          # deploy only what actually changed.
+          CHANGED=$(git diff --name-only HEAD~1 HEAD)
+
+          if echo "$CHANGED" | grep -qE '^(infra/|.github/workflows/deploy.yml)'; then
             echo "infra-changed=true" >> "$GITHUB_OUTPUT"
           else
             echo "infra-changed=false" >> "$GITHUB_OUTPUT"
           fi
-          
-          if git diff --name-only HEAD~1 HEAD | grep -qE '^(src/|Dockerfile|requirements.txt|.github/workflows/deploy.yml)'; then
+
+          if echo "$CHANGED" | grep -qE '^(src/|Dockerfile|requirements.txt|.github/workflows/deploy.yml)'; then
             echo "app-changed=true" >> "$GITHUB_OUTPUT"
           else
             echo "app-changed=false" >> "$GITHUB_OUTPUT"
           fi
 
-  test-bicep:
-    name: Test Bicep Templates
-    needs: check-paths
-    if: needs.check-paths.outputs.infra-changed == 'true'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-          cache: 'pip'
-
-      - name: Install Python dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
-
-      - name: Install Azure CLI and Bicep
-        run: az bicep install
-
-      - name: Run Bicep tests
-        run: pytest tests/test_bicep.py -v --tb=short
-
   deploy-infra:
     name: Deploy Infrastructure
-    needs: [check-paths, test-bicep]
+    needs: [check-paths, test]
     if: needs.check-paths.outputs.infra-changed == 'true'
     runs-on: ubuntu-latest
     outputs:
       managedIdentityPrincipalId: ${{ steps.deploy.outputs.managedIdentityPrincipalId }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       
       - name: Azure Login
-        uses: azure/login@v2
+        uses: azure/login@v3
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
@@ -158,16 +129,24 @@ jobs:
           az deployment group what-if \
             --resource-group ${{ env.RESOURCE_GROUP }} \
             --template-file infra/main.bicep \
-            --parameters location=${{ env.LOCATION }} deployContainerJob=false
+            --parameters location=${{ env.LOCATION }} aiLocation=${{ env.AI_LOCATION }} deployContainerJob=false
 
       - name: Deploy Core Infrastructure
         id: deploy
-        uses: azure/arm-deploy@v2
+        uses: azure/bicep-deploy@v2
         with:
-          scope: resourcegroup
-          resourceGroupName: ${{ env.RESOURCE_GROUP }}
-          template: ./infra/main.bicep
-          parameters: location=${{ env.LOCATION }} deployContainerJob=false
+          name: core-infra-deployment
+          type: deployment
+          operation: create
+          scope: resourceGroup
+          subscription-id: ${{ env.AZURE_SUBSCRIPTION_ID }}
+          resource-group-name: ${{ env.RESOURCE_GROUP }}
+          template-file: ./infra/main.bicep
+          parameters: |
+            location: ${{ env.LOCATION }}
+            aiLocation: ${{ env.AI_LOCATION }}
+            deployContainerJob: false
+
 
       - name: Assign Key Vault Secrets User role
         run: |
@@ -183,7 +162,7 @@ jobs:
 
   deploy-app:
     name: Deploy Application
-    needs: [check-paths, deploy-infra]
+    needs: [check-paths, deploy-infra, test]
     # Run if app changed, and either infra isn't modified or deployed successfully
     # So only run if infra is in a "good" state
     if: |
@@ -194,10 +173,10 @@ jobs:
       )
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Azure Login
-        uses: azure/login@v2
+        uses: azure/login@v3
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
@@ -239,12 +218,17 @@ jobs:
           docker push "${{ steps.acr.outputs.login_server }}/hitachi-app:latest"
 
       - name: Deploy Container App Job
-        uses: azure/arm-deploy@v2
+        uses: azure/bicep-deploy@v2
         with:
-          scope: resourcegroup
-          resourceGroupName: ${{ env.RESOURCE_GROUP }}
-          template: ./infra/main.bicep
-          parameters: >-
-            location=${{ env.LOCATION }}
-            deployContainerJob=true
-            jobImage=${{ steps.acr.outputs.login_server }}/hitachi-app:${{ github.sha }}
+          name: container-job-${{ github.run_id }}
+          type: deployment
+          operation: create
+          scope: resourceGroup
+          subscription-id: ${{ env.AZURE_SUBSCRIPTION_ID }}
+          resource-group-name: ${{ env.RESOURCE_GROUP }}
+          template-file: ./infra/main.bicep
+          parameters: |
+            location: ${{ env.LOCATION }}
+            aiLocation: ${{ env.AI_LOCATION }}
+            deployContainerJob: true
+            jobImage: ${{ steps.acr.outputs.login_server }}/hitachi-app:${{ github.sha }}

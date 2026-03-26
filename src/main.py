@@ -1,222 +1,239 @@
 import os
 import io
-from typing import Optional
+import logging
+import sys
+import uuid
+import json
+
+from pathlib import Path
 import pandas as pd
 from dotenv import load_dotenv
 from azure.storage.blob import BlobServiceClient
 from langchain_openai import AzureChatOpenAI
-from langchain.tools import tool
-from langchain_core.messages import HumanMessage, SystemMessage, ToolMessage
-from notifications.email_utils import send_insights_email
-from systemprompts.prompts import INSIGHTS_SYSTEM, INSIGHTS_HUMAN
+from langchain_core.messages import HumanMessage, SystemMessage
+from langchain.agents import create_agent
 
-load_dotenv()
+from notifications.email_utils import send_insights_email
+from systemprompts.prompts import (
+    INSIGHTS_SYSTEM,
+    INSIGHTS_HUMAN,
+    CHART_PLANNER_SYSTEM,
+    CHART_PLANNER_HUMAN_TEMPLATE,
+)
+from tools.tools import get_tools
+from visualizations.pdf_report import (
+    build_visualization_pdf,
+    verify_plotly_export_environment,
+)
+
+BASE_DIR = Path(__file__).resolve().parent.parent
+load_dotenv(BASE_DIR / ".env")
 
 STORAGE_CONNECTION_STRING = os.environ["AZURE_STORAGE_CONNECTION_STRING"]
 STORAGE_CONTAINER_NAME = os.environ["AZURE_STORAGE_CONTAINER_NAME"]
 AI_ENDPOINT = os.environ["AZURE_AI_PROJECT_ENDPOINT"]
 AI_API_KEY = os.environ["AZURE_AI_PROJECT_API_KEY"]
 
-CSV_BLOB_NAME = "sample2.csv"
-MODEL = "gpt-4.1-mini"
+MODEL = "gpt-5.4-mini"
+
+# module-level values that give each log line context about which job run produced it
+JOB_NAME = os.getenv("CONTAINER_APP_JOB_NAME", "hitachi-job")
+EXECUTION_ID = os.getenv("JOB_EXECUTION_ID", str(uuid.uuid4()))
 
 # Global variable to store the current dataframe for tool access
-current_df = None
+current_dfs = {}
 
-def download_csv() -> pd.DataFrame:
+
+class ContextFilter(logging.Filter):
+    def filter(self, record: logging.LogRecord) -> bool:
+        record.job_name = JOB_NAME
+        record.execution_id = EXECUTION_ID
+        return True
+
+
+def setup_logger() -> logging.Logger:
+    logger = logging.getLogger("hitachi_pipeline")
+    logger.setLevel(logging.INFO)
+
+    if not logger.handlers:
+        handler = logging.StreamHandler(sys.stdout)
+        formatter = logging.Formatter(
+            fmt=(
+                "%(asctime)s %(levelname)s %(name)s "
+                "[job=%(job_name)s execution_id=%(execution_id)s] %(message)s"
+            )
+        )
+        handler.setFormatter(formatter)
+        logger.addHandler(handler)
+        logger.addFilter(ContextFilter())
+
+    return logger
+
+
+logger = setup_logger()
+
+
+def log_section(title: str) -> None:
+    line = "=" * 80
+    logger.info("\n%s\n%s\n%s", line, title, line)
+
+
+def log_subsection(title: str) -> None:
+    line = "-" * 60
+    logger.info("\n%s\n%s\n%s", line, title, line)
+
+
+def log_iteration(iteration: int) -> None:
+    line = "-" * 25
+    logger.info("\n%s Iteration %d %s", line, iteration, line)
+
+
+def download_csv() -> dict[str, pd.DataFrame]:
+    logger.info(
+        "Downloading CSV files from Blob Storage: container=%s",
+        STORAGE_CONTAINER_NAME,
+    )
+
     client = BlobServiceClient.from_connection_string(STORAGE_CONNECTION_STRING)
-    blob_client = client.get_blob_client(container=STORAGE_CONTAINER_NAME, blob=CSV_BLOB_NAME)
-    print(f"Downloading {CSV_BLOB_NAME} from {STORAGE_CONTAINER_NAME}...")
-    data = blob_client.download_blob().readall()
-    df = pd.read_csv(io.BytesIO(data))
-    df.columns = df.columns.str.strip()
-    return df
+    container = client.get_container_client(container=STORAGE_CONTAINER_NAME)
 
+    dataframes = {}
 
-# Define tools for CSV analysis
-@tool
-def get_data_summary() -> str:
-    """Get a summary of the CSV data including shape, columns, and first few rows.
-    
-    Returns:
-        A string summary of the CSV file
-    """
-    try:
-        summary = f"CSV Data Summary:\n"
-        summary += f"Shape: {current_df.shape[0]} rows, {current_df.shape[1]} columns\n"
-        summary += f"Columns: {', '.join(current_df.columns.tolist())}\n"
-        summary += f"\nFirst 5 rows:\n{current_df.head().to_string()}"
-        return summary
-    except Exception as e:
-        return f"Error getting data summary: {str(e)}"
+    for blob in container.list_blobs():
+        if blob.name.lower().endswith(".csv"):
+            logger.info("Downloading %s from %s...", blob.name, STORAGE_CONTAINER_NAME)
+            blob_client = container.get_blob_client(blob.name)
+            data = blob_client.download_blob().readall()
+            df = pd.read_csv(io.BytesIO(data))
+            dataframes[blob.name] = df
 
+    return dataframes
 
-@tool
-def calculate_column_statistics(column_name: str) -> str:
-    """Calculate basic statistics for a numeric column in the CSV file.
-    
-    Args:
-        column_name: Name of the column to analyze
-        
-    Returns:
-        Statistical summary of the column
-    """
-    try:
-        if column_name not in current_df.columns:
-            return f"Column '{column_name}' not found. Available columns: {', '.join(current_df.columns.tolist())}"
-        
-        stats = current_df[column_name].describe()
-        return f"Statistics for '{column_name}':\n{stats.to_string()}"
-    except Exception as e:
-        return f"Error calculating statistics: {str(e)}"
+def generate_insights(data: dict[str, pd.DataFrame]):
+    global current_dfs
+    current_dfs = data
 
+    logger.info("Initializing Azure OpenAI client: model=%s", MODEL)
 
-@tool
-def get_column_info(column_name: str) -> str:
-    """Get information about a specific column including data type and unique values.
-    
-    Args:
-        column_name: Name of the column to analyze
-        
-    Returns:
-        Information about the column
-    """
-    try:
-        if column_name not in current_df.columns:
-            return f"Column '{column_name}' not found."
-        
-        col = current_df[column_name]
-        info = f"Column: {column_name}\n"
-        info += f"Data Type: {col.dtype}\n"
-        info += f"Non-null Count: {col.notna().sum()}\n"
-        info += f"Unique Values: {col.nunique()}\n"
-        if col.nunique() <= 10:
-            info += f"Values: {col.unique().tolist()}"
-        return info
-    except Exception as e:
-        return f"Error getting column info: {str(e)}"
-
-
-def generate_insights(df: pd.DataFrame) -> Optional[str]:
-    global current_df
-    current_df = df
-    
-    # Initialize Azure OpenAI LLM with LangChain
     llm = AzureChatOpenAI(
         azure_endpoint=AI_ENDPOINT,
         api_key=AI_API_KEY,
-        api_version="2024-10-21",
+        api_version="2024-12-01-preview",
         deployment_name=MODEL,
         temperature=0.5
     )
-    
-    # Bind tools to the model
-    tools = [get_data_summary, calculate_column_statistics, get_column_info]
-    llm_with_tools = llm.bind_tools(tools)
-    
+
+    tools = get_tools(current_dfs)
+
+    logger.info("Creating agent")
+    agent = create_agent(llm, 
+                         tools=tools, 
+                         system_prompt=INSIGHTS_SYSTEM, 
+                         name="basic-agent"
+    )
+    messages = [HumanMessage(content=INSIGHTS_HUMAN)]
+
+    logger.info("Starting insight generation with tool calls")
+    result = agent.invoke({"messages": messages})
+    return result
+
+def build_dataset_metadata(dfs: dict[str, pd.DataFrame]) -> str:
+    lines = []
+
+    for dataset_name, df in dfs.items():
+        cols = []
+        for col in df.columns:
+            dtype = str(df[col].dtype)
+            cols.append(f"{col} ({dtype})")
+
+        lines.append(f"Dataset: {dataset_name}")
+        lines.append(f"Rows: {len(df)}, Columns: {len(df.columns)}")
+        lines.append("Columns:")
+        for c in cols:
+            lines.append(f"  - {c}")
+        lines.append("")
+
+    return "\n".join(lines)
+
+
+def generate_chart_plan(dfs: dict[str, pd.DataFrame], insights_text: str) -> dict:
+    llm = AzureChatOpenAI(
+        azure_endpoint=AI_ENDPOINT,
+        api_key=AI_API_KEY,
+        api_version="2024-12-01-preview",
+        deployment_name=MODEL,
+        temperature=0.3
+    )
+
+    dataset_metadata = build_dataset_metadata(dfs)
+    human_prompt = CHART_PLANNER_HUMAN_TEMPLATE.format(
+        insights=insights_text,
+        dataset_metadata=dataset_metadata,
+    )
+
+    messages = [
+        SystemMessage(content=CHART_PLANNER_SYSTEM),
+        HumanMessage(content=human_prompt),
+    ]
+
+    response = llm.invoke(messages)
+    raw = response.content.strip()
+
+    logger.info("Raw chart planner output received")
+
     try:
-        # Invoke the model with a system message and user query
-        messages = [
-            SystemMessage(content=INSIGHTS_SYSTEM),
-            HumanMessage(content=INSIGHTS_HUMAN),
-        ]
-        
-        print("Generating insights with tool calling...\n")
-        
-        # Agentic loop - continue until model generates text (not just tool calls)
-        max_iterations = 10
-        iteration = 0
-        
-        while iteration < max_iterations:
-            iteration += 1
-            print(f"--- Iteration {iteration} ---")
-            
-            response = llm_with_tools.invoke(messages)
-            messages.append(response)
-            
-            print(f"DEBUG - Finish Reason: {response.response_metadata.get('finish_reason', 'unknown')}")
-            print(f"DEBUG - Has tool_calls: {bool(response.tool_calls)}")
-            print(f"DEBUG - Content length: {len(response.content)}")
-            
-            # Check if the model wants to use tools
-            if response.tool_calls:
-                print(f"AI is calling {len(response.tool_calls)} tools...\n")
-                
-                # Execute each tool call
-                available_tools = {
-                    "get_data_summary": get_data_summary,
-                    "calculate_column_statistics": calculate_column_statistics,
-                    "get_column_info": get_column_info
-                }
-                
-                tool_executed = False
-                for tool_call in response.tool_calls:
-                    tool_name = tool_call['name']
-                    tool_args = tool_call['args']
-                    print(f"Calling tool: {tool_name} with args: {tool_args}")
-                    
-                    try:
-                        # Execute the tool
-                        tool_function = available_tools[tool_name]
-                        tool_result = tool_function.invoke(tool_args)
-                        print(f"Tool result received ({len(str(tool_result))} chars)\n")
-                        tool_executed = True
-                        
-                        # Add tool result to messages
-                        messages.append(
-                            ToolMessage(
-                                content=str(tool_result),
-                                tool_call_id=tool_call['id']
-                            )
-                        )
-                    except Exception as tool_error:
-                        print(f"Tool execution error: {tool_error}\n")
-                        messages.append(
-                            ToolMessage(
-                                content=f"Error executing tool: {str(tool_error)}",
-                                tool_call_id=tool_call['id']
-                            )
-                        )
-                
-                # If no tools were successfully executed, break to avoid infinite loop
-                if not tool_executed:
-                    print("No tools were successfully executed. Breaking loop.\n")
-                    break
-            else:
-                # Model generated text content without requesting tools
-                print("Model has completed analysis.\n")
-                break
-        
-        # Display final insights
-        print("\n" + "="*50)
-        print("AI Insights:")
-        print("="*50 + "\n")
-
-        # Extract and return the last AI message with content
-        final_insights: Optional[str] = None
-        for msg in reversed(messages):
-            if hasattr(msg, 'content') and msg.content and msg.__class__.__name__ == 'AIMessage':
-                final_insights = msg.content
-                print(final_insights)
-                break
-        else:
-            print("No text response generated from AI model.")
-
-        return final_insights
-
-    except Exception as e:
-        import traceback
-        print(f"Error: {e}")
-        print(f"Traceback: {traceback.format_exc()}")
-        return None
+        return json.loads(raw)
+    except json.JSONDecodeError:
+        cleaned = raw.replace("```json", "").replace("```", "").strip()
+        return json.loads(cleaned)
 
 
 def main():
-    df = download_csv()
-    print(f"Loaded {len(df)} rows, {len(df.columns)} columns.\n")
-    insights = generate_insights(df)
-    if insights:
-        send_insights_email(insights, csv_name=CSV_BLOB_NAME)
+    log_section("HITACHI AI PROJECT TRACKING JOB STARTED")
+
+    try:
+        log_subsection("STEP 1: VERIFY PLOTLY / KALEIDO ENVIRONMENT")
+        logger.info("Checking Plotly/Kaleido export environment")
+        verify_plotly_export_environment()
+
+        log_subsection("STEP 2: DOWNLOAD CSV FILES")
+        dfs = download_csv()
+        logger.info("Loaded %d CSV files from Blob Storage", len(dfs))
+
+        log_subsection("STEP 3: GENERATE AI INSIGHTS")
+        insights = generate_insights(dfs)
+
+        if insights:
+            log_subsection("STEP 4: GENERATE AI CHART PLAN")
+            logger.info("Generating AI chart plan")
+            chart_plan = generate_chart_plan(dfs, insights)
+
+            log_subsection("STEP 5: BUILD PDF REPORT")
+            logger.info("Generating PDF report")
+            pdf_path = build_visualization_pdf(
+                dfs=dfs,
+                insights_text=insights,
+                chart_plan=chart_plan,
+                output_pdf_path=str(BASE_DIR / "reports" / "project_tracking_visualizations.pdf"),
+            )
+
+            logger.info("Generated PDF report at: %s", pdf_path)
+
+            log_subsection("STEP 6: SEND EMAIL")
+            logger.info("Sending insights email with PDF attachment")
+            send_insights_email(
+                insights,
+                csv_name="Combined Blob Storage Datasets",
+                attachment_paths=[pdf_path],
+            )
+
+            log_section("JOB COMPLETED SUCCESSFULLY")
+        else:
+            logger.warning("No insights generated; skipping email send")
+
+    except Exception:
+        logger.exception("Unhandled exception in job entrypoint")
+        raise
 
 
 if __name__ == "__main__":
