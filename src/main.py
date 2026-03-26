@@ -4,6 +4,7 @@ import logging
 import sys
 import uuid
 import json
+import time
 
 from pathlib import Path
 import pandas as pd
@@ -12,6 +13,14 @@ from azure.storage.blob import BlobServiceClient
 from langchain_openai import AzureChatOpenAI
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain.agents import create_agent
+from openai import RateLimitError
+from tenacity import (
+    retry,
+    retry_if_exception_type,
+    stop_after_attempt,
+    wait_exponential,
+    before_sleep_log,
+)
 
 from datafetching.refresh_extraction import sharepoint_to_blob
 from notifications.email_utils import send_insights_email
@@ -43,11 +52,36 @@ EXECUTION_ID = os.getenv("JOB_EXECUTION_ID", str(uuid.uuid4()))
 current_dfs = {}
 
 
-class ContextFilter(logging.Filter):
-    def filter(self, record: logging.LogRecord) -> bool:
-        record.job_name = JOB_NAME
-        record.execution_id = EXECUTION_ID
-        return True
+class _JsonFormatter(logging.Formatter):
+    """
+    Emits one JSON object per log record on a single line.
+
+    Each record has:
+      timestamp, level, job, execution_id, message
+
+    Exceptions are serialised into an 'exception' field as a single escaped
+    string rather than being printed as multi-line text.  This means every
+    log entry, including full stack traces, lands in exactly one
+    Log Analytics row and is trivially queryable with:
+
+        ContainerAppConsoleLogs_CL
+        | where TimeGenerated > ago(1h)
+        | extend rec = parse_json(Log_s)
+        | where rec.level == "ERROR"
+        | project TimeGenerated, rec.execution_id, rec.message, rec.exception
+    """
+
+    def format(self, record: logging.LogRecord) -> str:
+        payload: dict = {
+            "timestamp": self.formatTime(record, "%Y-%m-%dT%H:%M:%S"),
+            "level": record.levelname,
+            "job": JOB_NAME,
+            "execution_id": EXECUTION_ID,
+            "message": record.getMessage(),
+        }
+        if record.exc_info:
+            payload["exception"] = self.formatException(record.exc_info)
+        return json.dumps(payload, ensure_ascii=False)
 
 
 def setup_logger() -> logging.Logger:
@@ -56,15 +90,8 @@ def setup_logger() -> logging.Logger:
 
     if not logger.handlers:
         handler = logging.StreamHandler(sys.stdout)
-        formatter = logging.Formatter(
-            fmt=(
-                "%(asctime)s %(levelname)s %(name)s "
-                "[job=%(job_name)s execution_id=%(execution_id)s] %(message)s"
-            )
-        )
-        handler.setFormatter(formatter)
+        handler.setFormatter(_JsonFormatter())
         logger.addHandler(handler)
-        logger.addFilter(ContextFilter())
 
     return logger
 
@@ -73,18 +100,15 @@ logger = setup_logger()
 
 
 def log_section(title: str) -> None:
-    line = "=" * 80
-    logger.info("\n%s\n%s\n%s", line, title, line)
+    logger.info("=== %s ===", title)
 
 
 def log_subsection(title: str) -> None:
-    line = "-" * 60
-    logger.info("\n%s\n%s\n%s", line, title, line)
+    logger.info("--- %s ---", title)
 
 
 def log_iteration(iteration: int) -> None:
-    line = "-" * 25
-    logger.info("\n%s Iteration %d %s", line, iteration, line)
+    logger.info("--- Iteration %d ---", iteration)
 
 
 def download_csv() -> dict[str, pd.DataFrame]:
@@ -107,6 +131,17 @@ def download_csv() -> dict[str, pd.DataFrame]:
             dataframes[blob.name] = df
 
     return dataframes
+
+# Retry decorator for Azure OpenAI 429 rate-limit errors.
+# Waits 60–300 s between attempts (exponential backoff) for up to 5 tries.
+_llm_retry = retry(
+    retry=retry_if_exception_type(RateLimitError),
+    wait=wait_exponential(multiplier=1, min=60, max=300),
+    stop=stop_after_attempt(5),
+    before_sleep=before_sleep_log(logging.getLogger("hitachi_pipeline"), logging.WARNING),
+    reraise=True,
+)
+
 
 def generate_insights(data: dict[str, pd.DataFrame]):
     global current_dfs
@@ -133,7 +168,7 @@ def generate_insights(data: dict[str, pd.DataFrame]):
     messages = [HumanMessage(content=INSIGHTS_HUMAN)]
 
     logger.info("Starting insight generation with tool calls")
-    result = agent.invoke({"messages": messages})
+    result = _llm_retry(lambda: agent.invoke({"messages": messages}))
     return result
 
 def build_dataset_metadata(dfs: dict[str, pd.DataFrame]) -> str:
@@ -175,7 +210,7 @@ def generate_chart_plan(dfs: dict[str, pd.DataFrame], insights_text: str) -> dic
         HumanMessage(content=human_prompt),
     ]
 
-    response = llm.invoke(messages)
+    response = _llm_retry(lambda: llm.invoke(messages))
     raw = response.content.strip()
 
     logger.info("Raw chart planner output received")
