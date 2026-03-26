@@ -15,8 +15,10 @@ param sharepointFolderId string = 'root'
 
 // create a unique suffix to avoid naming collisions
 var uniqueSuffix = uniqueString(resourceGroup().id)
-// SharePoint wiring is only added to the container job when all required values are provided.
-var sharepointEnabled = !empty(sharepointClientId) && !empty(sharepointTenantId) && !empty(sharepointDriveId)
+// sharepointEnabled: base SharePoint config present (personal or work account).
+// sharepointWorkEnabled: full work-account config present (adds KV client-secret reference).
+var sharepointEnabled = !empty(sharepointClientId) && !empty(sharepointDriveId)
+var sharepointWorkEnabled = sharepointEnabled && !empty(sharepointTenantId)
 
 // created here so its principalId can be used in the Key Vault role assignment below.
 resource managedIdentity 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-01-31' = {
@@ -68,7 +70,7 @@ module kvModule 'keyvault.bicep' = {
     aiEndpoint: aiModule.outputs.aiEndpoint
     acsConnectionString: commServiceRef.listKeys().primaryConnectionString
     emailFromAddress: 'DoNotReply@${commModule.outputs.emailDomainName}'
-    sharepointEnabled: sharepointEnabled
+    sharepointEnabled: sharepointWorkEnabled
     sharepointClientSecret: sharepointClientSecret
   }
 }
@@ -82,9 +84,11 @@ module containerModule 'container.bicep' = {
     jobImage: empty(jobImage) ? 'hitachiacr${uniqueSuffix}.azurecr.io/hitachi-app:latest' : jobImage
     managedIdentityId: managedIdentity.id
     managedIdentityPrincipalId: managedIdentity.properties.principalId
+    managedIdentityClientId: managedIdentity.properties.clientId
     keyVaultUri: kvModule.outputs.keyVaultUri
     emailRecipient: 'hitachiseniordesign@outlook.com'
     sharepointEnabled: sharepointEnabled
+    sharepointWorkEnabled: sharepointWorkEnabled
     sharepointClientId: sharepointClientId
     sharepointTenantId: sharepointTenantId
     sharepointDriveId: sharepointDriveId

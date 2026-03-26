@@ -364,8 +364,9 @@ class TestKeyVaultBicep:
         workflow_file = INFRA_DIR.parent / ".github" / "workflows" / "deploy.yml"
         content = workflow_file.read_text()
 
-        assert "Key Vault Secrets User" in content, (
-            "deploy.yml should assign the Key Vault Secrets User role"
+        assert "Key Vault Secrets Officer" in content, (
+            "deploy.yml should assign the Key Vault Secrets Officer role "
+            "(superset of Secrets User; also allows writing back the token cache)"
         )
         assert "az role assignment create" in content, (
             "deploy.yml should create the role assignment via az CLI"
