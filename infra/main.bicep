@@ -15,6 +15,8 @@ param sharepointFolderId string = 'root'
 
 // create a unique suffix to avoid naming collisions
 var uniqueSuffix = uniqueString(resourceGroup().id)
+// SharePoint wiring is only added to the container job when all required values are provided.
+var sharepointEnabled = !empty(sharepointClientId) && !empty(sharepointTenantId) && !empty(sharepointDriveId)
 
 // created here so its principalId can be used in the Key Vault role assignment below.
 resource managedIdentity 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-01-31' = {
@@ -66,6 +68,7 @@ module kvModule 'keyvault.bicep' = {
     aiEndpoint: aiModule.outputs.aiEndpoint
     acsConnectionString: commServiceRef.listKeys().primaryConnectionString
     emailFromAddress: 'DoNotReply@${commModule.outputs.emailDomainName}'
+    sharepointEnabled: sharepointEnabled
     sharepointClientSecret: sharepointClientSecret
   }
 }
@@ -81,6 +84,7 @@ module containerModule 'container.bicep' = {
     managedIdentityPrincipalId: managedIdentity.properties.principalId
     keyVaultUri: kvModule.outputs.keyVaultUri
     emailRecipient: 'hitachiseniordesign@outlook.com'
+    sharepointEnabled: sharepointEnabled
     sharepointClientId: sharepointClientId
     sharepointTenantId: sharepointTenantId
     sharepointDriveId: sharepointDriveId
