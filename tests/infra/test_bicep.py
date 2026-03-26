@@ -383,6 +383,7 @@ class TestKeyVaultBicep:
             "azure-ai-project-endpoint",
             "acs-connection-string",
             "email-from-address",
+            "sharepoint-client-secret",
         ]
         for secret in expected_secrets:
             assert f"'{secret}'" in content, (
@@ -460,6 +461,7 @@ class TestBicepIntegration:
             "AZURE_STORAGE_CONTAINER_NAME",
             "AZURE_AI_PROJECT_API_KEY",
             "AZURE_AI_PROJECT_ENDPOINT",
+            "SHAREPOINT_CLIENT_SECRET",
         ]
         for var in expected_env_vars:
             assert var in content, (

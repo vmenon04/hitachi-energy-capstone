@@ -6,6 +6,12 @@ param aiLocation string = location
 param prefix string = 'hitachi'
 param deployContainerJob bool = true
 param jobImage string = ''
+@secure()
+param sharepointClientSecret string
+param sharepointClientId string
+param sharepointTenantId string
+param sharepointDriveId string
+param sharepointFolderId string = 'root'
 
 // create a unique suffix to avoid naming collisions
 var uniqueSuffix = uniqueString(resourceGroup().id)
@@ -60,6 +66,7 @@ module kvModule 'keyvault.bicep' = {
     aiEndpoint: aiModule.outputs.aiEndpoint
     acsConnectionString: commServiceRef.listKeys().primaryConnectionString
     emailFromAddress: 'DoNotReply@${commModule.outputs.emailDomainName}'
+    sharepointClientSecret: sharepointClientSecret
   }
 }
 
@@ -74,6 +81,10 @@ module containerModule 'container.bicep' = {
     managedIdentityPrincipalId: managedIdentity.properties.principalId
     keyVaultUri: kvModule.outputs.keyVaultUri
     emailRecipient: 'hitachiseniordesign@outlook.com'
+    sharepointClientId: sharepointClientId
+    sharepointTenantId: sharepointTenantId
+    sharepointDriveId: sharepointDriveId
+    sharepointFolderId: sharepointFolderId
   }
 }
 

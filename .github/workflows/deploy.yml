@@ -129,7 +129,14 @@ jobs:
           az deployment group what-if \
             --resource-group ${{ env.RESOURCE_GROUP }} \
             --template-file infra/main.bicep \
-            --parameters location=${{ env.LOCATION }} aiLocation=${{ env.AI_LOCATION }} deployContainerJob=false
+            --parameters \
+              location=${{ env.LOCATION }} \
+              aiLocation=${{ env.AI_LOCATION }} \
+              deployContainerJob=false \
+              sharepointClientId=${{ secrets.SHAREPOINT_CLIENT_ID }} \
+              sharepointTenantId=${{ secrets.SHAREPOINT_TENANT_ID }} \
+              sharepointDriveId=${{ secrets.SHAREPOINT_DRIVE_ID }} \
+              sharepointClientSecret=${{ secrets.SHAREPOINT_CLIENT_SECRET }}
 
       - name: Deploy Core Infrastructure
         id: deploy
@@ -146,6 +153,10 @@ jobs:
             location: ${{ env.LOCATION }}
             aiLocation: ${{ env.AI_LOCATION }}
             deployContainerJob: false
+            sharepointClientId: ${{ secrets.SHAREPOINT_CLIENT_ID }}
+            sharepointTenantId: ${{ secrets.SHAREPOINT_TENANT_ID }}
+            sharepointDriveId: ${{ secrets.SHAREPOINT_DRIVE_ID }}
+            sharepointClientSecret: ${{ secrets.SHAREPOINT_CLIENT_SECRET }}
 
 
       - name: Assign Key Vault Secrets User role
@@ -232,3 +243,7 @@ jobs:
             aiLocation: ${{ env.AI_LOCATION }}
             deployContainerJob: true
             jobImage: ${{ steps.acr.outputs.login_server }}/hitachi-app:${{ github.sha }}
+            sharepointClientId: ${{ secrets.SHAREPOINT_CLIENT_ID }}
+            sharepointTenantId: ${{ secrets.SHAREPOINT_TENANT_ID }}
+            sharepointDriveId: ${{ secrets.SHAREPOINT_DRIVE_ID }}
+            sharepointClientSecret: ${{ secrets.SHAREPOINT_CLIENT_SECRET }}

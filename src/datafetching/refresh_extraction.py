@@ -4,69 +4,34 @@ import msal
 from dotenv import load_dotenv
 from azure.storage.blob import BlobServiceClient
 
-# Reading in information from .env file
 load_dotenv()
+
 STORAGE_CONNECTION_STRING = os.environ.get("AZURE_STORAGE_CONNECTION_STRING")
 STORAGE_CONTAINER_NAME = os.environ.get("AZURE_STORAGE_CONTAINER_NAME")
 
-# MSAL Configuration
-CLIENT_ID = os.environ.get("SHAREPOINT_CLIENT_ID") # ID of Azure app registration, required to get token for API access
-SCOPES = ["https://graph.microsoft.com/Files.Read.All"] 
-AUTHORITY = os.environ.get("SHAREPOINT_AUTHORITY")
-CACHE_FILE = "token_cache.bin" # where to store auth token for Azure app registration
-
-def build_msal_app():
-    """
-    Initializes the Microsoft Authentication Library Client with the tokens created in manual_login.py
-    This script requires manual_login to have run successfully, and tokens to be stored in the CACHE_FILE.
-
-    Returns:
-        MSAL Client that can be used to send requests to MS Graph API
-    """
-    if not os.path.exists(CACHE_FILE):
-        # Error message if the CACHE_FILE doesn't exist. 
-        raise FileNotFoundError(
-            f"Token cache file '{CACHE_FILE}' not found! "
-            "Please run 'src/datafetching/manual_login.py' first to authenticate."
-        )
-    
-    # Reads through cache file and gets all the tokens to use for calling MS Graph API
-    cache = msal.SerializableTokenCache()
-    with open(CACHE_FILE, "r") as f:
-        cache.deserialize(f.read())
-    
-    # Returns our MSAL client and the cache file information 
-    # (Refresh tokens to get authorization for MS Graph API requests)
-    return msal.PublicClientApplication(
-        CLIENT_ID, 
-        authority=AUTHORITY,
-        token_cache=cache
-    ), cache
+# MSAL Configuration - client credentials (no human interaction required)
+CLIENT_ID = os.environ.get("SHAREPOINT_CLIENT_ID")
+CLIENT_SECRET = os.environ.get("SHAREPOINT_CLIENT_SECRET")
+TENANT_ID = os.environ.get("SHAREPOINT_TENANT_ID")
+# .default tells Entra to grant all application permissions configured on the app registration
+SCOPES = ["https://graph.microsoft.com/.default"]
 
 def get_access_token():
     """
-    Microsoft Authentication Library client will attempt to use the Refresh Token to update an expired Access Token.
+    Acquires a Microsoft Graph access token using the OAuth 2.0 client credentials
+    flow. No human interaction is required, making this safe for unattended
+    Azure Container Apps deployments.
     """
-    app, cache = build_msal_app()
-    accounts = app.get_accounts()
-    
-    if not accounts:
-        raise Exception("No cached accounts found in token_cache.bin. Please re-run manual_login.py.")
-
-    # Try to get access token (MSAL uses the refresh token if the access token is expired)
-    result = app.acquire_token_silent(SCOPES, account=accounts[0])
-    
-    if result and "access_token" in result:
-        # Save/Update the cache file if it has changed 
-        if cache.has_state_changed:
-            with open(CACHE_FILE, "w") as f:
-                f.write(cache.serialize())
-        return result["access_token"]
-    
-    raise Exception(
-        "Could not acquire token silently. Your login may have expired or was revoked. "
-        "Please re-run 'src/datafetching/manual_login.py' manually."
+    app = msal.ConfidentialClientApplication(
+        CLIENT_ID,
+        authority=f"https://login.microsoftonline.com/{TENANT_ID}",
+        client_credential=CLIENT_SECRET,
     )
+    result = app.acquire_token_for_client(scopes=SCOPES)
+    if result and "access_token" in result:
+        return result["access_token"]
+    error = result.get("error_description", result.get("error", "Unknown error")) if result else "No response"
+    raise Exception(f"Could not acquire Microsoft Graph token: {error}")
 
 def sharepoint_to_blob(drive_id: str, folder_id: str = "root"):
     """
@@ -135,7 +100,7 @@ def main():
         folder_id = os.environ.get("SHAREPOINT_FOLDER_ID", "root")
 
         if not drive_id:
-            raise ValueError("SHAREPOINT_DRIVE_ID not found in .env.")
+            raise ValueError("SHAREPOINT_DRIVE_ID environment variable is not set.")
 
         sharepoint_to_blob(drive_id, folder_id)
         
