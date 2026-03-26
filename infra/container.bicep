@@ -17,8 +17,17 @@ param replicaCompletionCount int = 1
 param cronExpression string = '0 8 * * *'
 param managedIdentityId string
 param managedIdentityPrincipalId string
+param managedIdentityClientId string
 param keyVaultUri string
 param emailRecipient string = 'hitachiseniordesign@outlook.com'
+// sharepointEnabled: any SharePoint mode (personal or work) is active
+param sharepointEnabled bool = false
+// sharepointWorkEnabled: work-account mode - adds the KV client-secret reference
+param sharepointWorkEnabled bool = false
+param sharepointClientId string = ''
+param sharepointTenantId string = ''
+param sharepointDriveId string = ''
+param sharepointFolderId string = 'root'
 
 resource acr 'Microsoft.ContainerRegistry/registries@2023-07-01' = {
   name: acrName
@@ -85,38 +94,48 @@ resource containerAppJob 'Microsoft.App/jobs@2024-03-01' = if (deployContainerJo
         }
       ]
 
-      secrets: [
-        {
-          name: 'azure-storage-connection-string'
-          keyVaultUrl: '${keyVaultUri}secrets/azure-storage-connection-string'
-          identity: managedIdentityId
-        }
-        {
-          name: 'azure-storage-container-name'
-          keyVaultUrl: '${keyVaultUri}secrets/azure-storage-container-name'
-          identity: managedIdentityId
-        }
-        {
-          name: 'azure-ai-project-api-key'
-          keyVaultUrl: '${keyVaultUri}secrets/azure-ai-project-api-key'
-          identity: managedIdentityId
-        }
-        {
-          name: 'azure-ai-project-endpoint'
-          keyVaultUrl: '${keyVaultUri}secrets/azure-ai-project-endpoint'
-          identity: managedIdentityId
-        }
-        {
-          name: 'acs-connection-string'
-          keyVaultUrl: '${keyVaultUri}secrets/acs-connection-string'
-          identity: managedIdentityId
-        }
-        {
-          name: 'email-from-address'
-          keyVaultUrl: '${keyVaultUri}secrets/email-from-address'
-          identity: managedIdentityId
-        }
-      ]
+      secrets: concat(
+        [
+          {
+            name: 'azure-storage-connection-string'
+            keyVaultUrl: '${keyVaultUri}secrets/azure-storage-connection-string'
+            identity: managedIdentityId
+          }
+          {
+            name: 'azure-storage-container-name'
+            keyVaultUrl: '${keyVaultUri}secrets/azure-storage-container-name'
+            identity: managedIdentityId
+          }
+          {
+            name: 'azure-ai-project-api-key'
+            keyVaultUrl: '${keyVaultUri}secrets/azure-ai-project-api-key'
+            identity: managedIdentityId
+          }
+          {
+            name: 'azure-ai-project-endpoint'
+            keyVaultUrl: '${keyVaultUri}secrets/azure-ai-project-endpoint'
+            identity: managedIdentityId
+          }
+          {
+            name: 'acs-connection-string'
+            keyVaultUrl: '${keyVaultUri}secrets/acs-connection-string'
+            identity: managedIdentityId
+          }
+          {
+            name: 'email-from-address'
+            keyVaultUrl: '${keyVaultUri}secrets/email-from-address'
+            identity: managedIdentityId
+          }
+        ],
+        // Work-account mode only: client secret lives in Key Vault
+        sharepointWorkEnabled ? [
+          {
+            name: 'sharepoint-client-secret'
+            keyVaultUrl: '${keyVaultUri}secrets/sharepoint-client-secret'
+            identity: managedIdentityId
+          }
+        ] : []
+      )
     }
     template: {
       containers: [
@@ -127,15 +146,32 @@ resource containerAppJob 'Microsoft.App/jobs@2024-03-01' = if (deployContainerJo
             cpu: jobCpu
             memory: jobMemory
           }
-          env: [
-            { name: 'AZURE_STORAGE_CONNECTION_STRING', secretRef: 'azure-storage-connection-string' }
-            { name: 'AZURE_STORAGE_CONTAINER_NAME',    secretRef: 'azure-storage-container-name' }
-            { name: 'AZURE_AI_PROJECT_API_KEY',        secretRef: 'azure-ai-project-api-key' }
-            { name: 'AZURE_AI_PROJECT_ENDPOINT',       secretRef: 'azure-ai-project-endpoint' }
-            { name: 'ACS_CONNECTION_STRING',           secretRef: 'acs-connection-string' }
-            { name: 'EMAIL_FROM_ADDRESS',              secretRef: 'email-from-address' }
-            { name: 'EMAIL_RECIPIENT',                 value: emailRecipient }
-          ]
+          env: concat(
+            [
+              { name: 'AZURE_STORAGE_CONNECTION_STRING', secretRef: 'azure-storage-connection-string' }
+              { name: 'AZURE_STORAGE_CONTAINER_NAME',    secretRef: 'azure-storage-container-name' }
+              { name: 'AZURE_AI_PROJECT_API_KEY',        secretRef: 'azure-ai-project-api-key' }
+              { name: 'AZURE_AI_PROJECT_ENDPOINT',       secretRef: 'azure-ai-project-endpoint' }
+              { name: 'ACS_CONNECTION_STRING',           secretRef: 'acs-connection-string' }
+              { name: 'EMAIL_FROM_ADDRESS',              secretRef: 'email-from-address' }
+              { name: 'EMAIL_RECIPIENT',                 value: emailRecipient }
+              // AZURE_KEYVAULT_URI and AZURE_CLIENT_ID let DefaultAzureCredential in Python
+              // read/write the sharepoint-token-cache secret for personal account mode.
+              { name: 'AZURE_KEYVAULT_URI',             value: keyVaultUri }
+              { name: 'AZURE_CLIENT_ID',                value: managedIdentityClientId }
+            ],
+            // Base SharePoint config — injected for both personal and work account modes
+            sharepointEnabled ? [
+              { name: 'SHAREPOINT_CLIENT_ID',            value: sharepointClientId }
+              { name: 'SHAREPOINT_DRIVE_ID',             value: sharepointDriveId }
+              { name: 'SHAREPOINT_FOLDER_ID',            value: sharepointFolderId }
+            ] : [],
+            // Work-account extras: client secret (from KV ref) and tenant ID
+            sharepointWorkEnabled ? [
+              { name: 'SHAREPOINT_CLIENT_SECRET',        secretRef: 'sharepoint-client-secret' }
+              { name: 'SHAREPOINT_TENANT_ID',            value: sharepointTenantId }
+            ] : []
+          )
         }
       ]
     }

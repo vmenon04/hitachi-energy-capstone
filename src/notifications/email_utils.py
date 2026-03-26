@@ -142,7 +142,7 @@ def send_insights_email(
         f"Dataset:   {csv_name}\n"
         f"{'=' * 60}\n\n"
         f"{insights_text}\n\n"
-        f"A PDF containing the generated visualizations is attached."
+        f"Interactive HTML charts are attached."
     )
 
     attachments = _build_attachments(attachment_paths)

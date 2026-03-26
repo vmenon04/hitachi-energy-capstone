@@ -364,8 +364,9 @@ class TestKeyVaultBicep:
         workflow_file = INFRA_DIR.parent / ".github" / "workflows" / "deploy.yml"
         content = workflow_file.read_text()
 
-        assert "Key Vault Secrets User" in content, (
-            "deploy.yml should assign the Key Vault Secrets User role"
+        assert "Key Vault Secrets Officer" in content, (
+            "deploy.yml should assign the Key Vault Secrets Officer role "
+            "(superset of Secrets User; also allows writing back the token cache)"
         )
         assert "az role assignment create" in content, (
             "deploy.yml should create the role assignment via az CLI"
@@ -383,6 +384,7 @@ class TestKeyVaultBicep:
             "azure-ai-project-endpoint",
             "acs-connection-string",
             "email-from-address",
+            "sharepoint-client-secret",
         ]
         for secret in expected_secrets:
             assert f"'{secret}'" in content, (
@@ -460,6 +462,7 @@ class TestBicepIntegration:
             "AZURE_STORAGE_CONTAINER_NAME",
             "AZURE_AI_PROJECT_API_KEY",
             "AZURE_AI_PROJECT_ENDPOINT",
+            "SHAREPOINT_CLIENT_SECRET",
         ]
         for var in expected_env_vars:
             assert var in content, (

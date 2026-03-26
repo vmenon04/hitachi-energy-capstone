@@ -129,7 +129,14 @@ jobs:
           az deployment group what-if \
             --resource-group ${{ env.RESOURCE_GROUP }} \
             --template-file infra/main.bicep \
-            --parameters location=${{ env.LOCATION }} aiLocation=${{ env.AI_LOCATION }} deployContainerJob=false
+            --parameters \
+              location=${{ env.LOCATION }} \
+              aiLocation=${{ env.AI_LOCATION }} \
+              deployContainerJob=false \
+              sharepointClientId=${{ secrets.SHAREPOINT_CLIENT_ID }} \
+              sharepointTenantId=${{ secrets.SHAREPOINT_TENANT_ID }} \
+              sharepointDriveId=${{ secrets.SHAREPOINT_DRIVE_ID }} \
+              sharepointClientSecret=${{ secrets.SHAREPOINT_CLIENT_SECRET }}
 
       - name: Deploy Core Infrastructure
         id: deploy
@@ -146,6 +153,10 @@ jobs:
             location: ${{ env.LOCATION }}
             aiLocation: ${{ env.AI_LOCATION }}
             deployContainerJob: false
+            sharepointClientId: ${{ secrets.SHAREPOINT_CLIENT_ID }}
+            sharepointTenantId: ${{ secrets.SHAREPOINT_TENANT_ID }}
+            sharepointDriveId: ${{ secrets.SHAREPOINT_DRIVE_ID }}
+            sharepointClientSecret: ${{ secrets.SHAREPOINT_CLIENT_SECRET }}
 
 
       - name: Assign Key Vault Secrets User role
@@ -155,7 +166,7 @@ jobs:
             --query "[0].name" -o tsv)
           MI_PRINCIPAL_ID="${{ steps.deploy.outputs.managedIdentityPrincipalId }}"
           az role assignment create \
-            --role "Key Vault Secrets User" \
+            --role "Key Vault Secrets Officer" \
             --assignee-object-id "$MI_PRINCIPAL_ID" \
             --assignee-principal-type ServicePrincipal \
             --scope "/subscriptions/${{ fromJson(secrets.AZURE_CREDENTIALS).subscriptionId }}/resourceGroups/${{ env.RESOURCE_GROUP }}/providers/Microsoft.KeyVault/vaults/$KV_NAME"
@@ -232,3 +243,7 @@ jobs:
             aiLocation: ${{ env.AI_LOCATION }}
             deployContainerJob: true
             jobImage: ${{ steps.acr.outputs.login_server }}/hitachi-app:${{ github.sha }}
+            sharepointClientId: ${{ secrets.SHAREPOINT_CLIENT_ID }}
+            sharepointTenantId: ${{ secrets.SHAREPOINT_TENANT_ID }}
+            sharepointDriveId: ${{ secrets.SHAREPOINT_DRIVE_ID }}
+            sharepointClientSecret: ${{ secrets.SHAREPOINT_CLIENT_SECRET }}

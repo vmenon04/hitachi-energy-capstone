@@ -13,6 +13,9 @@ param aiEndpoint string
 @secure()
 param acsConnectionString string
 param emailFromAddress string
+@secure()
+param sharepointClientSecret string = ''
+param sharepointEnabled bool = false
 
 resource keyVault 'Microsoft.KeyVault/vaults@2023-07-01' = {
   name: keyVaultName
@@ -64,6 +67,12 @@ resource secretEmailFromAddress 'Microsoft.KeyVault/vaults/secrets@2023-07-01' =
   parent: keyVault
   name: 'email-from-address'
   properties: { value: emailFromAddress }
+}
+
+resource secretSharepointClientSecret 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = if (sharepointEnabled) {
+  parent: keyVault
+  name: 'sharepoint-client-secret'
+  properties: { value: sharepointClientSecret }
 }
 
 output keyVaultName string = keyVault.name

@@ -6,9 +6,19 @@ param aiLocation string = location
 param prefix string = 'hitachi'
 param deployContainerJob bool = true
 param jobImage string = ''
+@secure()
+param sharepointClientSecret string = ''
+param sharepointClientId string = ''
+param sharepointTenantId string = ''
+param sharepointDriveId string = ''
+param sharepointFolderId string = 'root'
 
 // create a unique suffix to avoid naming collisions
 var uniqueSuffix = uniqueString(resourceGroup().id)
+// sharepointEnabled: base SharePoint config present (personal or work account).
+// sharepointWorkEnabled: full work-account config present (adds KV client-secret reference).
+var sharepointEnabled = !empty(sharepointClientId) && !empty(sharepointDriveId)
+var sharepointWorkEnabled = sharepointEnabled && !empty(sharepointTenantId)
 
 // created here so its principalId can be used in the Key Vault role assignment below.
 resource managedIdentity 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-01-31' = {
@@ -60,6 +70,8 @@ module kvModule 'keyvault.bicep' = {
     aiEndpoint: aiModule.outputs.aiEndpoint
     acsConnectionString: commServiceRef.listKeys().primaryConnectionString
     emailFromAddress: 'DoNotReply@${commModule.outputs.emailDomainName}'
+    sharepointEnabled: sharepointWorkEnabled
+    sharepointClientSecret: sharepointClientSecret
   }
 }
 
@@ -72,8 +84,15 @@ module containerModule 'container.bicep' = {
     jobImage: empty(jobImage) ? 'hitachiacr${uniqueSuffix}.azurecr.io/hitachi-app:latest' : jobImage
     managedIdentityId: managedIdentity.id
     managedIdentityPrincipalId: managedIdentity.properties.principalId
+    managedIdentityClientId: managedIdentity.properties.clientId
     keyVaultUri: kvModule.outputs.keyVaultUri
     emailRecipient: 'hitachiseniordesign@outlook.com'
+    sharepointEnabled: sharepointEnabled
+    sharepointWorkEnabled: sharepointWorkEnabled
+    sharepointClientId: sharepointClientId
+    sharepointTenantId: sharepointTenantId
+    sharepointDriveId: sharepointDriveId
+    sharepointFolderId: sharepointFolderId
   }
 }
 
