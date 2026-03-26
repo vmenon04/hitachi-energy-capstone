@@ -12,6 +12,14 @@ from azure.storage.blob import BlobServiceClient
 from langchain_openai import AzureChatOpenAI
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain.agents import create_agent
+from openai import RateLimitError
+from tenacity import (
+    retry,
+    retry_if_exception_type,
+    stop_after_attempt,
+    wait_exponential,
+    before_sleep_log,
+)
 
 from datafetching.refresh_extraction import sharepoint_to_blob
 from notifications.email_utils import send_insights_email
@@ -108,6 +116,17 @@ def download_csv() -> dict[str, pd.DataFrame]:
 
     return dataframes
 
+# Retry decorator for Azure OpenAI 429 rate-limit errors.
+# Waits 60–300 s between attempts (exponential backoff) for up to 5 tries.
+_llm_retry = retry(
+    retry=retry_if_exception_type(RateLimitError),
+    wait=wait_exponential(multiplier=1, min=60, max=300),
+    stop=stop_after_attempt(5),
+    before_sleep=before_sleep_log(logging.getLogger("hitachi_pipeline"), logging.WARNING),
+    reraise=True,
+)
+
+
 def generate_insights(data: dict[str, pd.DataFrame]):
     global current_dfs
     current_dfs = data
@@ -133,7 +152,7 @@ def generate_insights(data: dict[str, pd.DataFrame]):
     messages = [HumanMessage(content=INSIGHTS_HUMAN)]
 
     logger.info("Starting insight generation with tool calls")
-    result = agent.invoke({"messages": messages})
+    result = _llm_retry(lambda: agent.invoke({"messages": messages}))
     return result
 
 def build_dataset_metadata(dfs: dict[str, pd.DataFrame]) -> str:
@@ -175,7 +194,7 @@ def generate_chart_plan(dfs: dict[str, pd.DataFrame], insights_text: str) -> dic
         HumanMessage(content=human_prompt),
     ]
 
-    response = llm.invoke(messages)
+    response = _llm_retry(lambda: llm.invoke(messages))
     raw = response.content.strip()
 
     logger.info("Raw chart planner output received")
