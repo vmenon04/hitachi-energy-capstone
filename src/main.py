@@ -4,7 +4,6 @@ import logging
 import sys
 import uuid
 import json
-import time
 
 from pathlib import Path
 import pandas as pd
@@ -52,36 +51,11 @@ EXECUTION_ID = os.getenv("JOB_EXECUTION_ID", str(uuid.uuid4()))
 current_dfs = {}
 
 
-class _JsonFormatter(logging.Formatter):
-    """
-    Emits one JSON object per log record on a single line.
-
-    Each record has:
-      timestamp, level, job, execution_id, message
-
-    Exceptions are serialised into an 'exception' field as a single escaped
-    string rather than being printed as multi-line text.  This means every
-    log entry, including full stack traces, lands in exactly one
-    Log Analytics row and is trivially queryable with:
-
-        ContainerAppConsoleLogs_CL
-        | where TimeGenerated > ago(1h)
-        | extend rec = parse_json(Log_s)
-        | where rec.level == "ERROR"
-        | project TimeGenerated, rec.execution_id, rec.message, rec.exception
-    """
-
-    def format(self, record: logging.LogRecord) -> str:
-        payload: dict = {
-            "timestamp": self.formatTime(record, "%Y-%m-%dT%H:%M:%S"),
-            "level": record.levelname,
-            "job": JOB_NAME,
-            "execution_id": EXECUTION_ID,
-            "message": record.getMessage(),
-        }
-        if record.exc_info:
-            payload["exception"] = self.formatException(record.exc_info)
-        return json.dumps(payload, ensure_ascii=False)
+class ContextFilter(logging.Filter):
+    def filter(self, record: logging.LogRecord) -> bool:
+        record.job_name = JOB_NAME
+        record.execution_id = EXECUTION_ID
+        return True
 
 
 def setup_logger() -> logging.Logger:
@@ -90,8 +64,15 @@ def setup_logger() -> logging.Logger:
 
     if not logger.handlers:
         handler = logging.StreamHandler(sys.stdout)
-        handler.setFormatter(_JsonFormatter())
+        formatter = logging.Formatter(
+            fmt=(
+                "%(asctime)s %(levelname)s %(name)s "
+                "[job=%(job_name)s execution_id=%(execution_id)s] %(message)s"
+            )
+        )
+        handler.setFormatter(formatter)
         logger.addHandler(handler)
+        logger.addFilter(ContextFilter())
 
     return logger
 
@@ -100,15 +81,18 @@ logger = setup_logger()
 
 
 def log_section(title: str) -> None:
-    logger.info("=== %s ===", title)
+    line = "=" * 80
+    logger.info("\n%s\n%s\n%s", line, title, line)
 
 
 def log_subsection(title: str) -> None:
-    logger.info("--- %s ---", title)
+    line = "-" * 60
+    logger.info("\n%s\n%s\n%s", line, title, line)
 
 
 def log_iteration(iteration: int) -> None:
-    logger.info("--- Iteration %d ---", iteration)
+    line = "-" * 25
+    logger.info("\n%s Iteration %d %s", line, iteration, line)
 
 
 def download_csv() -> dict[str, pd.DataFrame]:
