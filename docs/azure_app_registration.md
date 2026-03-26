@@ -1,36 +1,73 @@
-# Set up Azure App Registration for Data Fetching
+# Azure App Registration for SharePoint/OneDrive Ingestion
 
-In order to run the MS Graph API related code without user interaction, we need to set up Microsoft Authentication Library Device Flow.
+The data fetching pipeline uses the Microsoft Graph API to read files from
+OneDrive/SharePoint and transfer them to Azure Blob Storage. Authentication
+differs slightly between personal Microsoft accounts (development) and work/school
+accounts (production).
 
-To do this, there are multiple steps.
+## 1. Create the App Registration
 
-## 1. Create App Registration
+1. Go to [portal.azure.com](https://portal.azure.com)
+2. Navigate to **Microsoft Entra ID → App registrations → New registration**
+3. Configure:
+   - **Name**: anything descriptive, e.g. `hitachi-datafetch`
+   - **Supported account types**:
+     - Personal account: *Personal Microsoft accounts only*
+     - Work account: *Accounts in this organizational directory only*
+4. Click **Register**
+5. From the Overview page, copy the **Application (client) ID** → this is `SHAREPOINT_CLIENT_ID`
+6. Also copy the **Directory (tenant) ID** → this is `SHAREPOINT_TENANT_ID` (work accounts only)
 
-1. Go to [https://portal.azure.com]
-2. Navigate to: **Azure Active Directory → App registrations**
-3. Click **New registration**
-4. Configure:
-    - **Name**:
-    - **Supported account types**: *Accounts in any organizational directory and personal Microsoft accounts*
-5. Click **Register**
+## 2. Configure API Permissions
 
-## 2. Enable Public Client Flow
+### Personal account
+1. Go to **API permissions → Add a permission → Microsoft Graph → Delegated permissions**
+2. Add `Files.Read.All`
+3. Go to **Authentication → Advanced settings → Allow public client flows → Enabled**
 
-1. Go to **Authentication**
-2. Under **Advanced settings**:
-   - Enable **Allow public client flows**
-3. Save
+### Work/school account
+1. Go to **API permissions → Add a permission → Microsoft Graph → Application permissions**
+2. Add `Files.Read.All` (or `Sites.Read.All` if accessing SharePoint document libraries)
+3. Click **Grant admin consent** — required for application permissions to take effect
 
-## 3. Save Application ID
+## 3. Create a Client Secret (work accounts only)
 
-- After the App registration is complete, store the Application/Client ID in the `.env` file as the `CLIENT_ID`
+1. Go to **Certificates & secrets → New client secret**
+2. Set an expiry and click **Add**
+3. Copy the **Value** immediately — it is only shown once
+4. Store it as the GitHub Actions secret `SHAREPOINT_CLIENT_SECRET` and in Key Vault as `sharepoint-client-secret`
 
-## 4. Add API Permissions
+## 4. Find the Drive and Folder IDs
 
-1. Go to **API permissions**
-2. Click **Add a permission**
-3. Select **Microsoft Graph**
-4. Select **Delegated permissions**
-5. Add:
-   - `Files.Read.All`
-6. Click **Add permissions**
+Use [Graph Explorer](https://developer.microsoft.com/graph/graph-explorer) signed in with the account that owns the data:
+
+```
+GET https://graph.microsoft.com/v1.0/me/drives
+```
+Copy the `id` of the drive → `SHAREPOINT_DRIVE_ID`.
+
+To find a folder inside the drive:
+```
+GET https://graph.microsoft.com/v1.0/me/drive/root/children
+```
+Copy the `id` of the target folder → `SHAREPOINT_FOLDER_ID` (or just set `SHAREPOINT_FOLDER_NAME` and let the code resolve it automatically).
+
+## 5. Environment Variables Summary
+
+| Variable | Personal account | Work account |
+|---|---|---|
+| `SHAREPOINT_CLIENT_ID` | Required | Required |
+| `SHAREPOINT_TENANT_ID` | Not used | Required |
+| `SHAREPOINT_CLIENT_SECRET` | Not used | Required |
+| `SHAREPOINT_DRIVE_ID` | Required | Required |
+| `SHAREPOINT_FOLDER_NAME` | Optional (folder name to ingest) | Optional |
+| `AZURE_KEYVAULT_URI` | Required locally for token cache | Not needed |
+
+For cloud deployment, store the following as **GitHub Actions secrets** (Settings → Secrets and variables → Actions):
+
+| Account type | Required GitHub Actions secrets |
+|---|---|
+| Personal | `SHAREPOINT_CLIENT_ID`, `SHAREPOINT_DRIVE_ID` |
+| Work/school | `SHAREPOINT_CLIENT_ID`, `SHAREPOINT_DRIVE_ID`, `SHAREPOINT_CLIENT_SECRET`, `SHAREPOINT_TENANT_ID` |
+
+`AZURE_KEYVAULT_URI` is injected automatically by Bicep and does not need to be a GitHub Actions secret.

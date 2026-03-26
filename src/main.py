@@ -13,6 +13,7 @@ from langchain_openai import AzureChatOpenAI
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain.agents import create_agent
 
+from datafetching.refresh_extraction import sharepoint_to_blob
 from notifications.email_utils import send_insights_email
 from systemprompts.prompts import (
     INSIGHTS_SYSTEM,
@@ -196,19 +197,30 @@ def main():
         logger.info("Checking Plotly/Kaleido export environment")
         verify_plotly_export_environment()
 
-        log_subsection("STEP 2: DOWNLOAD CSV FILES")
+        log_subsection("STEP 2: SYNC FROM SHAREPOINT / ONEDRIVE")
+        sharepoint_client_id = os.getenv("SHAREPOINT_CLIENT_ID")
+        if sharepoint_client_id:
+            drive_id = os.environ["SHAREPOINT_DRIVE_ID"]
+            folder_id = os.environ.get("SHAREPOINT_FOLDER_ID", "root")
+            logger.info("SharePoint ingestion enabled; syncing drive=%s", drive_id)
+            sharepoint_to_blob(drive_id, folder_id)
+            logger.info("SharePoint sync complete")
+        else:
+            logger.info("SHAREPOINT_CLIENT_ID not set; skipping SharePoint sync")
+
+        log_subsection("STEP 3: DOWNLOAD CSV FILES")
         dfs = download_csv()
         logger.info("Loaded %d CSV files from Blob Storage", len(dfs))
 
-        log_subsection("STEP 3: GENERATE AI INSIGHTS")
+        log_subsection("STEP 4: GENERATE AI INSIGHTS")
         insights = generate_insights(dfs)
 
         if insights:
-            log_subsection("STEP 4: GENERATE AI CHART PLAN")
+            log_subsection("STEP 5: GENERATE AI CHART PLAN")
             logger.info("Generating AI chart plan")
             chart_plan = generate_chart_plan(dfs, insights)
 
-            log_subsection("STEP 5: BUILD PDF REPORT")
+            log_subsection("STEP 6: BUILD PDF REPORT")
             logger.info("Generating PDF report")
             pdf_path = build_visualization_pdf(
                 dfs=dfs,
@@ -219,7 +231,7 @@ def main():
 
             logger.info("Generated PDF report at: %s", pdf_path)
 
-            log_subsection("STEP 6: SEND EMAIL")
+            log_subsection("STEP 7: SEND EMAIL")
             logger.info("Sending insights email with PDF attachment")
             send_insights_email(
                 insights,
