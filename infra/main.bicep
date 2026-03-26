@@ -14,7 +14,7 @@ param sharepointAuthority string = ''
 @secure()
 param sharepointDriveId string = ''
 @secure()
-param sharepointFolderId string = 'root'
+param sharepointFolderId string = ''
 
 // create a unique suffix to avoid naming collisions
 var uniqueSuffix = uniqueString(resourceGroup().id)
