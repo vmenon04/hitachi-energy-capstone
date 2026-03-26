@@ -97,6 +97,11 @@ resource containerAppJob 'Microsoft.App/jobs@2024-03-01' = if (deployContainerJo
           identity: managedIdentityId
         }
         {
+          name: 'token-cache-container-name'
+          keyVaultUrl: '${keyVaultUri}secrets/token-cache-container-name'
+          identity: managedIdentityId
+        }
+        {
           name: 'azure-ai-project-api-key'
           keyVaultUrl: '${keyVaultUri}secrets/azure-ai-project-api-key'
           identity: managedIdentityId
@@ -116,6 +121,26 @@ resource containerAppJob 'Microsoft.App/jobs@2024-03-01' = if (deployContainerJo
           keyVaultUrl: '${keyVaultUri}secrets/email-from-address'
           identity: managedIdentityId
         }
+        {
+          name: 'sharepoint-client-id'
+          keyVaultUrl: '${keyVaultUri}secrets/sharepoint-client-id'
+          identity: managedIdentityId
+        }
+        {
+          name: 'sharepoint-authority'
+          keyVaultUrl: '${keyVaultUri}secrets/sharepoint-authority'
+          identity: managedIdentityId
+        }
+        {
+          name: 'sharepoint-drive-id'
+          keyVaultUrl: '${keyVaultUri}secrets/sharepoint-drive-id'
+          identity: managedIdentityId
+        }
+        {
+          name: 'sharepoint-folder-id'
+          keyVaultUrl: '${keyVaultUri}secrets/sharepoint-folder-id'
+          identity: managedIdentityId
+        }
       ]
     }
     template: {
@@ -130,10 +155,15 @@ resource containerAppJob 'Microsoft.App/jobs@2024-03-01' = if (deployContainerJo
           env: [
             { name: 'AZURE_STORAGE_CONNECTION_STRING', secretRef: 'azure-storage-connection-string' }
             { name: 'AZURE_STORAGE_CONTAINER_NAME',    secretRef: 'azure-storage-container-name' }
+            { name: 'TOKEN_CACHE_CONTAINER_NAME',     secretRef: 'token-cache-container-name' }
             { name: 'AZURE_AI_PROJECT_API_KEY',        secretRef: 'azure-ai-project-api-key' }
             { name: 'AZURE_AI_PROJECT_ENDPOINT',       secretRef: 'azure-ai-project-endpoint' }
             { name: 'ACS_CONNECTION_STRING',           secretRef: 'acs-connection-string' }
             { name: 'EMAIL_FROM_ADDRESS',              secretRef: 'email-from-address' }
+            { name: 'SHAREPOINT_CLIENT_ID',            secretRef: 'sharepoint-client-id' }
+            { name: 'SHAREPOINT_AUTHORITY',            secretRef: 'sharepoint-authority' }
+            { name: 'SHAREPOINT_DRIVE_ID',              secretRef: 'sharepoint-drive-id' }
+            { name: 'SHAREPOINT_FOLDER_ID',             secretRef: 'sharepoint-folder-id' }
             { name: 'EMAIL_RECIPIENT',                 value: emailRecipient }
           ]
         }

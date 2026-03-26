@@ -7,12 +7,22 @@ param keyVaultName string
 @secure() // the @secure() ensures they are masked in deployment logs.
 param storageConnectionString string
 param storageContainerName string
+param cacheContainerName string
 @secure()
 param aiApiKey string
 param aiEndpoint string
 @secure()
 param acsConnectionString string
 param emailFromAddress string
+
+@secure()
+param sharepointClientId string
+@secure()
+param sharepointAuthority string
+@secure()
+param sharepointDriveId string
+@secure()
+param sharepointFolderId string
 
 resource keyVault 'Microsoft.KeyVault/vaults@2023-07-01' = {
   name: keyVaultName
@@ -42,6 +52,12 @@ resource secretStorageContainerName 'Microsoft.KeyVault/vaults/secrets@2023-07-0
   properties: { value: storageContainerName }
 }
 
+resource secretCacheContainerName 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = {
+  parent: keyVault
+  name: 'token-cache-container-name'
+  properties: { value: cacheContainerName }
+}
+
 resource secretAiApiKey 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = {
   parent: keyVault
   name: 'azure-ai-project-api-key'
@@ -64,6 +80,30 @@ resource secretEmailFromAddress 'Microsoft.KeyVault/vaults/secrets@2023-07-01' =
   parent: keyVault
   name: 'email-from-address'
   properties: { value: emailFromAddress }
+}
+
+resource secretSharepointClientId 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = {
+  parent: keyVault
+  name: 'sharepoint-client-id'
+  properties: { value: sharepointClientId }
+}
+
+resource secretSharepointAuthority 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = {
+  parent: keyVault
+  name: 'sharepoint-authority'
+  properties: { value: sharepointAuthority }
+}
+
+resource secretSharepointDriveId 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = {
+  parent: keyVault
+  name: 'sharepoint-drive-id'
+  properties: { value: sharepointDriveId }
+}
+
+resource secretSharepointFolderId 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = {
+  parent: keyVault
+  name: 'sharepoint-folder-id'
+  properties: { value: sharepointFolderId }
 }
 
 output keyVaultName string = keyVault.name

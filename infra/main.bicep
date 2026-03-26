@@ -7,6 +7,15 @@ param prefix string = 'hitachi'
 param deployContainerJob bool = true
 param jobImage string = ''
 
+@secure()
+param sharepointClientId string = ''
+@secure()
+param sharepointAuthority string = ''
+@secure()
+param sharepointDriveId string = ''
+@secure()
+param sharepointFolderId string = 'root'
+
 // create a unique suffix to avoid naming collisions
 var uniqueSuffix = uniqueString(resourceGroup().id)
 
@@ -56,10 +65,15 @@ module kvModule 'keyvault.bicep' = {
     keyVaultName: 'kv${uniqueSuffix}'
     storageConnectionString: storageModule.outputs.storageConnectionString
     storageContainerName: storageModule.outputs.csvContainerName
+    cacheContainerName: storageModule.outputs.cacheContainerName
     aiApiKey: aiModule.outputs.aiApiKey
     aiEndpoint: aiModule.outputs.aiEndpoint
     acsConnectionString: commServiceRef.listKeys().primaryConnectionString
     emailFromAddress: 'DoNotReply@${commModule.outputs.emailDomainName}'
+    sharepointClientId: sharepointClientId
+    sharepointAuthority: sharepointAuthority
+    sharepointDriveId: sharepointDriveId
+    sharepointFolderId: sharepointFolderId
   }
 }
 

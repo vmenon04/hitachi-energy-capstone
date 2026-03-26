@@ -33,9 +33,18 @@ resource reportsContainer 'Microsoft.Storage/storageAccounts/blobServices/contai
   }
 }
 
+resource cacheContainer 'Microsoft.Storage/storageAccounts/blobServices/containers@2023-01-01' = {
+  parent: blobServices
+  name: 'token-cache'
+  properties: {
+    publicAccess: 'None'
+  }
+}
+
 output storageAccountName string = storageAccount.name
 output reportsContainerName string = reportsContainer.name
 output csvContainerName string = csvContainer.name
+output cacheContainerName string = cacheContainer.name
 
 // @secure() masks the value in deployment logs
 @secure()
