@@ -192,19 +192,4 @@ def sharepoint_to_blob(drive_id: str, folder_id: str = "root"):
 
     print("Finished transferring files from OneDrive/SharePoint to Azure Blob Storage")
 
-def main():
-    try:
-        drive_id = os.environ.get("SHAREPOINT_DRIVE_ID")
-        folder_id = os.environ.get("SHAREPOINT_FOLDER_ID", "root")
 
-        if not drive_id:
-            raise ValueError("SHAREPOINT_DRIVE_ID environment variable is not set.")
-
-        sharepoint_to_blob(drive_id, folder_id)
-        
-    except Exception as e:
-        print(f"\nError in the process: {e}")
-        exit(1) # Exit with error code for automated workflows
-
-if __name__ == "__main__":
-    main()
