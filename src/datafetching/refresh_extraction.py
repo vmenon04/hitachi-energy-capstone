@@ -1,12 +1,15 @@
 import os
 import requests
 import msal
+import logging
 from dotenv import load_dotenv
 from azure.identity import DefaultAzureCredential
 from azure.keyvault.secrets import SecretClient
 from azure.storage.blob import BlobServiceClient
 
 load_dotenv()
+
+logger = logging.getLogger("hitachi_pipeline")
 
 STORAGE_CONNECTION_STRING = os.environ.get("AZURE_STORAGE_CONNECTION_STRING")
 STORAGE_CONTAINER_NAME = os.environ.get("AZURE_STORAGE_CONTAINER_NAME")
@@ -165,14 +168,14 @@ def sharepoint_to_blob(drive_id: str, folder_id: str = "root"):
     else:
         list_url = f"{base}/items/{folder_id}/children"
 
-    print(f"Fetching files from OneDrive/SharePoint (Folder: {FOLDER_NAME or 'root'})...")
+    logger.info("Fetching files from OneDrive/SharePoint (Folder: %s)...", FOLDER_NAME or "root")
     response = requests.get(list_url, headers=headers)
     if response.status_code != 200:
-        print(f"Error fetching files: {response.text}")
+        logger.error("Error fetching files: %s", response.text)
         response.raise_for_status()
 
     items = response.json().get("value", [])
-    print(f"Found {len(items)} items in the folder.")
+    logger.info("Found %d items in the folder.", len(items))
 
     for item in items:
         if "file" in item and (item["name"].endswith(".csv") or item["name"].endswith(".CSV")
@@ -181,15 +184,15 @@ def sharepoint_to_blob(drive_id: str, folder_id: str = "root"):
             name = item["name"]
             file_id = item["id"]
 
-            print(f"Reading {name}...")
+            logger.info("Reading %s...", name)
             read_file_url = f"{base}/items/{file_id}/content"
             file_response = requests.get(read_file_url, headers=headers, stream=True)
             file_response.raise_for_status()
 
             new_blob = blob_client.get_blob_client(f"{blob_prefix}{name}")
             new_blob.upload_blob(file_response.content, overwrite=True)
-            print(f"Successfully transferred {name} to Azure Blob Storage ({blob_prefix}{name})")
+            logger.info("Successfully transferred %s to Azure Blob Storage (%s%s)", name, blob_prefix, name)
 
-    print("Finished transferring files from OneDrive/SharePoint to Azure Blob Storage")
+    logger.info("Finished transferring files from OneDrive/SharePoint to Azure Blob Storage")
 
 

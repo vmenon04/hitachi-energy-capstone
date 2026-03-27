@@ -21,6 +21,7 @@ Prerequisites:
 
 import os
 import msal
+import logging
 from dotenv import load_dotenv
 from azure.identity import DefaultAzureCredential
 from azure.keyvault.secrets import SecretClient
@@ -33,6 +34,7 @@ AUTHORITY = "https://login.microsoftonline.com/consumers"
 SCOPES = ["https://graph.microsoft.com/Files.Read.All"]
 SECRET_NAME = "sharepoint-token-cache"
 
+logger = logging.getLogger("azure-login")
 
 def main():
     cache = msal.SerializableTokenCache()
@@ -44,21 +46,22 @@ def main():
             f"Could not initiate device flow: {flow.get('error_description', 'Unknown error')}"
         )
 
-    print(flow["message"])
+    logger.info(flow["message"])
 
     result = app.acquire_token_by_device_flow(flow)
     if not result or "access_token" not in result:
         error = result.get("error_description", "Unknown error") if result else "No response"
+        logger.error("Authentication failed: %s", error)
         raise Exception(f"Authentication failed: {error}")
 
     username = result.get("id_token_claims", {}).get("preferred_username", "unknown")
-    print(f"\nAuthenticated as: {username}")
+    logger.info("Authenticated as: %s", username)
 
     kv_client = SecretClient(vault_url=KV_URI, credential=DefaultAzureCredential())
     kv_client.set_secret(SECRET_NAME, cache.serialize())
 
-    print(f"Token cache stored in Key Vault secret '{SECRET_NAME}'.")
-    print("The container job can now run unattended until the refresh token expires (~90 days).")
+    logger.info("Token cache stored in Key Vault secret '%s'.", SECRET_NAME)
+    logger.info("The container job can now run unattended until the refresh token expires (~90 days).")
 
 
 if __name__ == "__main__":
