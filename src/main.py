@@ -236,7 +236,7 @@ def main():
 
             log_subsection("STEP 5: BUILD AND UPLOAD HTML CHARTS")
             logger.info("Generating interactive HTML charts and uploading to blob storage")
-            chart_paths = build_and_upload_chart_htmls(
+            chart_paths, chart_images = build_and_upload_chart_htmls(
                 dfs=dfs,
                 chart_plan=chart_plan,
                 connection_string=STORAGE_CONNECTION_STRING,
@@ -245,11 +245,11 @@ def main():
             logger.info("Generated %d HTML charts", len(chart_paths))
 
             log_subsection("STEP 6: SEND EMAIL")
-            logger.info("Sending insights email with HTML chart attachments")
+            logger.info("Sending insights email with chart images")
             send_insights_email(
                 insights_text,
                 csv_name="Combined Blob Storage Datasets",
-                attachment_paths=chart_paths,
+                chart_images=chart_images,
             )
 
             log_section("JOB COMPLETED SUCCESSFULLY")

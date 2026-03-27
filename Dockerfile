@@ -4,10 +4,12 @@ FROM python:3.11-slim
 # 2. Set the working directory
 WORKDIR /app
 
-# 3. Install system dependencies (needed for some AI libs like OpenCV or Psycopg2)
-# RUN apt-get update && apt-get install -y \
-#     build-essential \
-#     && rm -rf /var/lib/apt/lists/*
+# 3. Install system dependencies
+RUN apt-get update && apt-get install -y \
+    libglib2.0-0 \
+    libgl1-mesa-glx \
+    libfontconfig1 \
+    && rm -rf /var/lib/apt/lists/*
 
 # 4. Copy and install Python dependencies
 COPY requirements.txt .

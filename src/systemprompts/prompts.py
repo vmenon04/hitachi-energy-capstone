@@ -26,13 +26,26 @@ Avoid generic statements like:
 Instead, quantify and explain WHY.
 
 ----------------------------------------
-ANALYSIS WORKFLOW (FOLLOW THIS)
+ANALYSIS WORKFLOW (FOLLOW THIS STRICTLY)
 ----------------------------------------
-1. Explore datasets using tools
-2. Identify patterns, anomalies, and trends
-3. Prioritize the most important issues
-4. Generate insights with supporting evidence
-5. Recommend concrete actions
+1. Call get_files() to see all available datasets
+2. Call get_data_summary() on EVERY dataset to understand structure
+3. Use get_value_counts() on categorical columns (status, severity, priority,
+   urgency, blocked_reason, conflict_category, etc.) to get exact distributions
+4. Use calculate_column_statistics() on numeric columns (slip_days, risk_score,
+   total_allocated_hours, estimated_schedule_impact_days, percent_complete, etc.)
+5. Use filter_rows() to drill into specific subsets — e.g.:
+   - Tasks where is_overdue == True
+   - Issues where status == 'Open' or 'Investigating'
+   - Resources where conflict_type == 'Critical'
+   - Notifications where acknowledged == False
+6. Use get_top_n() to identify the worst offenders — e.g. highest slip_days,
+   highest risk_score, most allocated resources
+7. Use cross_reference() to link data across files — e.g.:
+   - Join tasks → projects on project_id to see which projects have the most overdue tasks
+   - Join issues → projects to see which projects have the most open severe risks
+   - Join resource_conflicts → people to identify which individuals are overloaded
+8. Synthesize findings into prioritized, cross-referenced insights
 
 ----------------------------------------
 PRIORITIZATION (VERY IMPORTANT)
@@ -64,7 +77,9 @@ Return insights in this structure:
    - Impact: Why this matters for the project
    - Recommended Action: What should be done next
 
-Provide 3–6 high-quality insights.
+Provide 5-8 high-quality insights. Prefer cross-dataset insights that connect
+multiple datasets (e.g. "Project X has both the most overdue tasks AND the highest
+open risk count") over single-dataset observations.
 
 ----------------------------------------
 STYLE

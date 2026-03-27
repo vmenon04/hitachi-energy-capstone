@@ -106,14 +106,34 @@ def _build_attachments(attachment_paths: list[str] | None) -> list[dict]:
     return attachments
 
 
-def build_html_email(insights_text: str, csv_name: str = "data.csv") -> str:
+def build_html_email(
+    insights_text: str,
+    csv_name: str = "data.csv",
+    chart_images: list[dict] | None = None,
+) -> str:
     """Render insights text (plain text / Markdown) into the full HTML template."""
     date_str = datetime.now().strftime("%B %d, %Y at %H:%M")
     insights_html = _md_to_html(insights_text)
+
+    charts_html = ""
+    if chart_images:
+        parts = []
+        for chart in chart_images:
+            title = chart.get("title", "")
+            b64 = chart.get("image_b64", "")
+            parts.append(
+                f'<div class="chart-block">'
+                f'<p class="chart-title">{title}</p>'
+                f'<img src="data:image/png;base64,{b64}" alt="{title}" style="width:100%;max-width:700px;display:block;margin:0 auto;"/>'
+                f'</div>'
+            )
+        charts_html = "\n".join(parts)
+
     return _load_email_template().safe_substitute(
         date_str=date_str,
         csv_name=csv_name,
         insights_html=insights_html,
+        charts_html=charts_html,
     )
 
 
@@ -126,6 +146,7 @@ def send_insights_email(
     sender: Optional[str] = None,
     connection_string: Optional[str] = None,
     attachment_paths: list[str] | None = None,
+    chart_images: list[dict] | None = None,
 ) -> None:
     """Send an HTML insights email via the ACS Email SDK."""
     conn_str = connection_string or _ACS_CONNECTION_STRING
@@ -135,7 +156,7 @@ def send_insights_email(
         f"AI Business Insights Report \u2013 {datetime.now().strftime('%B %d, %Y')}"
     )
 
-    html_body = build_html_email(insights_text, csv_name=csv_name)
+    html_body = build_html_email(insights_text, csv_name=csv_name, chart_images=chart_images)
     plain_body = (
         f"AI Business Insights Report\n"
         f"Generated: {datetime.now().strftime('%B %d, %Y at %H:%M')}\n"
@@ -150,10 +171,7 @@ def send_insights_email(
     print(f"\n{'─' * 50}")
     print(f"  To          : {to_addr}")
     print(f"  Subject     : {subject}")
-    print(
-        f"  Attachments : "
-        f"{[Path(p).name for p in attachment_paths] if attachment_paths else []}"
-    )
+    print(f"  Charts      : {len(chart_images) if chart_images else 0} inline image(s)")
     print(f"{'─' * 50}")
 
     if not conn_str or conn_str.strip().lower() == "local":

@@ -241,6 +241,20 @@
         padding-top: 6px;
       }
     }
+
+    .chart-block {
+      padding: 24px 52px;
+      border-top: 1px solid var(--line);
+    }
+
+    .chart-title {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--ink-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin: 0 0 12px;
+    }
   </style>
 </head>
 <body>
@@ -256,6 +270,8 @@
         ${insights_html}
       </div>
     </div>
+
+    ${charts_html}
 
     <div class="footer">
       <span class="footer-text">Automated message from the Hitachi #2 Senior Design Team. This mailbox is not monitored.</span>

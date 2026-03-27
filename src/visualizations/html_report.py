@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+import base64
 import tempfile
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 
 import pandas as pd
 import plotly.express as px
@@ -111,11 +112,17 @@ def _render_chart_html(
     local_path = tmp_dir / filename
     fig.write_html(str(local_path), include_plotlyjs="cdn")
 
+    png_path = tmp_dir / filename.replace(".html", ".png")
+    fig.write_image(str(png_path), format="png", width=700, height=400, scale=1.5)
+    with open(png_path, "rb") as img_f:
+        image_b64 = base64.b64encode(img_f.read()).decode("utf-8")
+
     return {
         "dataset": dataset_name,
         "title": title,
         "local_path": str(local_path),
         "blob_name": filename,
+        "image_b64": image_b64,
     }
 
 
@@ -125,10 +132,11 @@ def build_and_upload_chart_htmls(
     connection_string: str,
     container_name: str,
     blob_prefix: str = "charts/",
-) -> List[str]:
+) -> Tuple[List[str], List[dict]]:
     """
     Generates interactive HTML charts from the AI chart plan, uploads them to
-    Blob Storage, and returns local temp file paths for email attachment.
+    Blob Storage, and returns local temp file paths and PNG image data for
+    inline email embedding.
 
     Files are written to a temp directory that persists for the lifetime of the
     process — the Container App Job exits after send, so no explicit cleanup is
@@ -142,13 +150,14 @@ def build_and_upload_chart_htmls(
         blob_prefix: Prefix applied to every blob name inside the container.
 
     Returns:
-        List of local temp file paths, one per generated HTML chart.
+        Tuple of (local HTML paths, list of {title, image_b64} dicts for email).
     """
     blob_service = BlobServiceClient.from_connection_string(connection_string)
     container = blob_service.get_container_client(container_name)
 
     tmp_dir = Path(tempfile.mkdtemp(prefix="hitachi_charts_"))
     local_paths: List[str] = []
+    chart_images: List[dict] = []
 
     datasets = chart_plan.get("datasets", [])
     for dataset_entry in datasets:
@@ -181,9 +190,10 @@ def build_and_upload_chart_htmls(
 
                 print(f"[DEBUG] Uploaded chart to blob: {container_name}/{blob_name}")
                 local_paths.append(entry["local_path"])
+                chart_images.append({"title": entry["title"], "image_b64": entry["image_b64"]})
 
             except Exception as e:
                 print(f"[ERROR] Failed to render chart for {dataset_name}: {e}")
 
     print(f"[DEBUG] Total HTML charts generated and uploaded: {len(local_paths)}")
-    return local_paths
+    return local_paths, chart_images
