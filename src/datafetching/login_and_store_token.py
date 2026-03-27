@@ -21,6 +21,9 @@ Prerequisites:
 
 import os
 import msal
+import logging
+import sys
+import uuid
 from dotenv import load_dotenv
 from azure.identity import DefaultAzureCredential
 from azure.keyvault.secrets import SecretClient
@@ -33,6 +36,35 @@ AUTHORITY = "https://login.microsoftonline.com/consumers"
 SCOPES = ["https://graph.microsoft.com/Files.Read.All"]
 SECRET_NAME = "sharepoint-token-cache"
 
+# module-level values that give each log line context about which job run produced it
+JOB_NAME = os.getenv("CONTAINER_APP_JOB_NAME", "hitachi-setup")
+EXECUTION_ID = os.getenv("JOB_EXECUTION_ID", str(uuid.uuid4()))
+
+class ContextFilter(logging.Filter):
+    def filter(self, record: logging.LogRecord) -> bool:
+        record.job_name = JOB_NAME
+        record.execution_id = EXECUTION_ID
+        return True
+
+def setup_logger() -> logging.Logger:
+    logger = logging.getLogger("hitachi_pipeline")
+    logger.setLevel(logging.INFO)
+
+    if not logger.handlers:
+        handler = logging.StreamHandler(sys.stdout)
+        formatter = logging.Formatter(
+            fmt=(
+                "%(asctime)s %(levelname)s %(name)s "
+                "[job=%(job_name)s execution_id=%(execution_id)s] %(message)s"
+            )
+        )
+        handler.setFormatter(formatter)
+        logger.addHandler(handler)
+        logger.addFilter(ContextFilter())
+
+    return logger
+
+logger = setup_logger()
 
 def main():
     cache = msal.SerializableTokenCache()
@@ -44,21 +76,22 @@ def main():
             f"Could not initiate device flow: {flow.get('error_description', 'Unknown error')}"
         )
 
-    print(flow["message"])
+    logger.info(flow["message"])
 
     result = app.acquire_token_by_device_flow(flow)
     if not result or "access_token" not in result:
         error = result.get("error_description", "Unknown error") if result else "No response"
+        logger.error("Authentication failed: %s", error)
         raise Exception(f"Authentication failed: {error}")
 
     username = result.get("id_token_claims", {}).get("preferred_username", "unknown")
-    print(f"\nAuthenticated as: {username}")
+    logger.info("Authenticated as: %s", username)
 
     kv_client = SecretClient(vault_url=KV_URI, credential=DefaultAzureCredential())
     kv_client.set_secret(SECRET_NAME, cache.serialize())
 
-    print(f"Token cache stored in Key Vault secret '{SECRET_NAME}'.")
-    print("The container job can now run unattended until the refresh token expires (~90 days).")
+    logger.info("Token cache stored in Key Vault secret '%s'.", SECRET_NAME)
+    logger.info("The container job can now run unattended until the refresh token expires (~90 days).")
 
 
 if __name__ == "__main__":
