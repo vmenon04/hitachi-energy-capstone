@@ -36,10 +36,6 @@ AUTHORITY = "https://login.microsoftonline.com/consumers"
 SCOPES = ["https://graph.microsoft.com/Files.Read.All"]
 SECRET_NAME = "sharepoint-token-cache"
 
-# module-level values that give each log line context about which job run produced it
-JOB_NAME = os.getenv("CONTAINER_APP_JOB_NAME", "hitachi-setup")
-EXECUTION_ID = os.getenv("JOB_EXECUTION_ID", str(uuid.uuid4()))
-
 logger = logging.getLogger("azure-login")
 
 def main():
