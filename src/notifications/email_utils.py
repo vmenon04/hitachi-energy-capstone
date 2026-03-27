@@ -98,7 +98,7 @@ def _build_attachments(attachment_paths: list[str] | None) -> list[dict]:
         attachments.append(
             {
                 "name": path.name,
-                "attachmentType": mime_type,
+                "contentType": mime_type,
                 "contentInBase64": encoded_content,
             }
         )
