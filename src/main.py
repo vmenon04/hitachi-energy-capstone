@@ -1,35 +1,15 @@
 import os
-import io
-import logging
-import sys
 import uuid
-import json
 
 from pathlib import Path
-import pandas as pd
 from dotenv import load_dotenv
-from azure.storage.blob import BlobServiceClient
-from langchain_openai import AzureChatOpenAI
-from langchain_core.messages import HumanMessage, SystemMessage
-from langchain.agents import create_agent
-from openai import RateLimitError
-from tenacity import (
-    retry,
-    retry_if_exception_type,
-    stop_after_attempt,
-    wait_exponential,
-    before_sleep_log,
-)
+
+from utils.logging_utils import setup_logger, log_section, log_subsection
+from utils.data_utils import download_csv
+from agents.agents import generate_insights, generate_chart_plan
 
 from datafetching.refresh_extraction import sharepoint_to_blob
 from notifications.email_utils import send_insights_email
-from systemprompts.prompts import (
-    INSIGHTS_SYSTEM,
-    INSIGHTS_HUMAN,
-    CHART_PLANNER_SYSTEM,
-    CHART_PLANNER_HUMAN_TEMPLATE,
-)
-from tools.tools import get_tools
 from visualizations.html_report import build_and_upload_chart_htmls
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -38,10 +18,6 @@ load_dotenv(BASE_DIR / ".env")
 STORAGE_CONNECTION_STRING = os.environ["AZURE_STORAGE_CONNECTION_STRING"]
 STORAGE_CONTAINER_NAME = os.environ["AZURE_STORAGE_CONTAINER_NAME"]
 REPORTS_CONTAINER_NAME = os.environ.get("AZURE_REPORTS_CONTAINER_NAME", "bi-reports")
-AI_ENDPOINT = os.environ["AZURE_AI_PROJECT_ENDPOINT"]
-AI_API_KEY = os.environ["AZURE_AI_PROJECT_API_KEY"]
-
-MODEL = "gpt-5.4-mini"
 
 # module-level values that give each log line context about which job run produced it
 JOB_NAME = os.getenv("CONTAINER_APP_JOB_NAME", "hitachi-job")
@@ -51,159 +27,9 @@ EXECUTION_ID = os.getenv("JOB_EXECUTION_ID", str(uuid.uuid4()))
 current_dfs = {}
 
 
-class ContextFilter(logging.Filter):
-    def filter(self, record: logging.LogRecord) -> bool:
-        record.job_name = JOB_NAME
-        record.execution_id = EXECUTION_ID
-        return True
+logger = setup_logger(JOB_NAME, EXECUTION_ID)
 
 
-def setup_logger() -> logging.Logger:
-    logger = logging.getLogger("hitachi_pipeline")
-    logger.setLevel(logging.INFO)
-
-    if not logger.handlers:
-        handler = logging.StreamHandler(sys.stdout)
-        formatter = logging.Formatter(
-            fmt=(
-                "%(asctime)s %(levelname)s %(name)s "
-                "[job=%(job_name)s execution_id=%(execution_id)s] %(message)s"
-            )
-        )
-        handler.setFormatter(formatter)
-        logger.addHandler(handler)
-        logger.addFilter(ContextFilter())
-
-    return logger
-
-
-logger = setup_logger()
-
-
-def log_section(title: str) -> None:
-    line = "=" * 80
-    logger.info("\n%s\n%s\n%s", line, title, line)
-
-
-def log_subsection(title: str) -> None:
-    line = "-" * 60
-    logger.info("\n%s\n%s\n%s", line, title, line)
-
-
-def log_iteration(iteration: int) -> None:
-    line = "-" * 25
-    logger.info("\n%s Iteration %d %s", line, iteration, line)
-
-
-def download_csv() -> dict[str, pd.DataFrame]:
-    logger.info(
-        "Downloading CSV files from Blob Storage: container=%s",
-        STORAGE_CONTAINER_NAME,
-    )
-
-    client = BlobServiceClient.from_connection_string(STORAGE_CONNECTION_STRING)
-    container = client.get_container_client(container=STORAGE_CONTAINER_NAME)
-
-    dataframes = {}
-
-    for blob in container.list_blobs():
-        if blob.name.lower().endswith(".csv"):
-            logger.info("Downloading %s from %s...", blob.name, STORAGE_CONTAINER_NAME)
-            blob_client = container.get_blob_client(blob.name)
-            data = blob_client.download_blob().readall()
-            df = pd.read_csv(io.BytesIO(data))
-            dataframes[blob.name] = df
-
-    return dataframes
-
-# Retry decorator for Azure OpenAI 429 rate-limit errors.
-# Waits 60–300 s between attempts (exponential backoff) for up to 5 tries.
-_llm_retry = retry(
-    retry=retry_if_exception_type(RateLimitError),
-    wait=wait_exponential(multiplier=1, min=60, max=300),
-    stop=stop_after_attempt(5),
-    before_sleep=before_sleep_log(logging.getLogger("hitachi_pipeline"), logging.WARNING),
-    reraise=True,
-)
-
-
-def generate_insights(data: dict[str, pd.DataFrame]):
-    global current_dfs
-    current_dfs = data
-
-    logger.info("Initializing Azure OpenAI client: model=%s", MODEL)
-
-    llm = AzureChatOpenAI(
-        azure_endpoint=AI_ENDPOINT,
-        api_key=AI_API_KEY,
-        api_version="2024-12-01-preview",
-        deployment_name=MODEL,
-        temperature=0.5
-    )
-
-    tools = get_tools(current_dfs)
-
-    logger.info("Creating agent")
-    agent = create_agent(llm, 
-                         tools=tools, 
-                         system_prompt=INSIGHTS_SYSTEM, 
-                         name="basic-agent"
-    )
-    messages = [HumanMessage(content=INSIGHTS_HUMAN)]
-
-    logger.info("Starting insight generation with tool calls")
-    result = _llm_retry(lambda: agent.invoke({"messages": messages}))()
-    return result
-
-def build_dataset_metadata(dfs: dict[str, pd.DataFrame]) -> str:
-    lines = []
-
-    for dataset_name, df in dfs.items():
-        cols = []
-        for col in df.columns:
-            dtype = str(df[col].dtype)
-            cols.append(f"{col} ({dtype})")
-
-        lines.append(f"Dataset: {dataset_name}")
-        lines.append(f"Rows: {len(df)}, Columns: {len(df.columns)}")
-        lines.append("Columns:")
-        for c in cols:
-            lines.append(f"  - {c}")
-        lines.append("")
-
-    return "\n".join(lines)
-
-
-def generate_chart_plan(dfs: dict[str, pd.DataFrame], insights_text: str) -> dict:
-    llm = AzureChatOpenAI(
-        azure_endpoint=AI_ENDPOINT,
-        api_key=AI_API_KEY,
-        api_version="2024-12-01-preview",
-        deployment_name=MODEL,
-        temperature=0.3
-    )
-
-    dataset_metadata = build_dataset_metadata(dfs)
-    human_prompt = CHART_PLANNER_HUMAN_TEMPLATE.format(
-        insights=insights_text,
-        dataset_metadata=dataset_metadata,
-    )
-
-    messages = [
-        SystemMessage(content=CHART_PLANNER_SYSTEM),
-        HumanMessage(content=human_prompt),
-    ]
-
-    response = _llm_retry(lambda: llm.invoke(messages))()
-    raw = response.content.strip()
-
-    logger.info("Raw chart planner output received")
-
-    try:
-        return json.loads(raw)
-    except json.JSONDecodeError:
-        cleaned = raw.replace("```json", "").replace("```", "").strip()
-        return json.loads(cleaned)
 
 
 def main():
@@ -222,7 +48,7 @@ def main():
             logger.info("SHAREPOINT_CLIENT_ID not set; skipping SharePoint sync")
 
         log_subsection("STEP 2: DOWNLOAD CSV FILES")
-        dfs = download_csv()
+        dfs = download_csv(STORAGE_CONNECTION_STRING, STORAGE_CONTAINER_NAME)
         logger.info("Loaded %d CSV files from Blob Storage", len(dfs))
 
         log_subsection("STEP 3: GENERATE AI INSIGHTS")
