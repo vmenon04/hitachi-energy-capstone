@@ -40,31 +40,7 @@ SECRET_NAME = "sharepoint-token-cache"
 JOB_NAME = os.getenv("CONTAINER_APP_JOB_NAME", "hitachi-setup")
 EXECUTION_ID = os.getenv("JOB_EXECUTION_ID", str(uuid.uuid4()))
 
-class ContextFilter(logging.Filter):
-    def filter(self, record: logging.LogRecord) -> bool:
-        record.job_name = JOB_NAME
-        record.execution_id = EXECUTION_ID
-        return True
-
-def setup_logger() -> logging.Logger:
-    logger = logging.getLogger("hitachi_pipeline")
-    logger.setLevel(logging.INFO)
-
-    if not logger.handlers:
-        handler = logging.StreamHandler(sys.stdout)
-        formatter = logging.Formatter(
-            fmt=(
-                "%(asctime)s %(levelname)s %(name)s "
-                "[job=%(job_name)s execution_id=%(execution_id)s] %(message)s"
-            )
-        )
-        handler.setFormatter(formatter)
-        logger.addHandler(handler)
-        logger.addFilter(ContextFilter())
-
-    return logger
-
-logger = setup_logger()
+logger = logging.getLogger("azure-login")
 
 def main():
     cache = msal.SerializableTokenCache()
