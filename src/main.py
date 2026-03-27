@@ -226,12 +226,13 @@ def main():
         logger.info("Loaded %d CSV files from Blob Storage", len(dfs))
 
         log_subsection("STEP 3: GENERATE AI INSIGHTS")
-        insights = generate_insights(dfs)
+        insights_result = generate_insights(dfs)
+        insights_text = insights_result["messages"][-1].content if insights_result else ""
 
-        if insights:
+        if insights_text:
             log_subsection("STEP 4: GENERATE AI CHART PLAN")
             logger.info("Generating AI chart plan")
-            chart_plan = generate_chart_plan(dfs, insights)
+            chart_plan = generate_chart_plan(dfs, insights_text)
 
             log_subsection("STEP 5: BUILD AND UPLOAD HTML CHARTS")
             logger.info("Generating interactive HTML charts and uploading to blob storage")
@@ -246,7 +247,7 @@ def main():
             log_subsection("STEP 6: SEND EMAIL")
             logger.info("Sending insights email with HTML chart attachments")
             send_insights_email(
-                insights,
+                insights_text,
                 csv_name="Combined Blob Storage Datasets",
                 attachment_paths=chart_paths,
             )
