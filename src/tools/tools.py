@@ -1,6 +1,16 @@
 from langchain.tools import tool
 import pandas as pd
 
+_MAX_TOOL_OUTPUT_CHARS = 6000
+
+
+def _truncate(text: str) -> str:
+    """Cap tool output to avoid flooding the model context with large dataframe dumps."""
+    if len(text) <= _MAX_TOOL_OUTPUT_CHARS:
+        return text
+    return text[:_MAX_TOOL_OUTPUT_CHARS] + f"\n... [truncated — {len(text) - _MAX_TOOL_OUTPUT_CHARS} chars omitted]"
+
+
 def get_tools(dfs: dict):
 
     @tool
@@ -30,7 +40,7 @@ def get_tools(dfs: dict):
             summary = f"CSV Data Summary:\n"
             summary += f"Shape: {df.shape[0]} rows, {df.shape[1]} columns\n"
             summary += f"Columns: {', '.join(df.columns.tolist())}\n"
-            summary += f"\nFirst 5 rows:\n{df.head().to_string()}"
+            summary += f"\nColumn types:\n{df.dtypes.to_string()}"
             return summary
         except Exception as e:
             return f"Error getting data summary: {str(e)}"
@@ -154,7 +164,7 @@ def get_tools(dfs: dict):
             filtered = df[mask]
             total = len(filtered)
             sample = filtered.head(max_rows)
-            return f"Filter '{column_name} {operator} {value}': {total} matching rows (showing {len(sample)}):\n{sample.to_string()}"
+            return _truncate(f"Filter '{column_name} {operator} {value}': {total} matching rows (showing {len(sample)}):\n{sample.to_string()}")
         except Exception as e:
             return f"Error filtering rows: {str(e)}"
 
@@ -182,7 +192,7 @@ def get_tools(dfs: dict):
             sorted_df = df.assign(**{sort_column: numeric}).dropna(subset=[sort_column])
             sorted_df = sorted_df.sort_values(sort_column, ascending=ascending).head(n)
             direction = "ascending" if ascending else "descending"
-            return f"Top {n} rows from '{filename}' sorted by '{sort_column}' ({direction}):\n{sorted_df.to_string()}"
+            return _truncate(f"Top {n} rows from '{filename}' sorted by '{sort_column}' ({direction}):\n{sorted_df.to_string()}")
         except Exception as e:
             return f"Error getting top N: {str(e)}"
 
@@ -222,7 +232,7 @@ def get_tools(dfs: dict):
             merged = df1.merge(df2, left_on=column1, right_on=column2, how="inner", suffixes=("_left", "_right"))
             total = len(merged)
             sample = merged.head(20)
-            return f"Cross-reference '{filename1}'.{column1} → '{filename2}'.{column2}: {total} matching rows (showing {min(20, total)}):\n{sample.to_string()}"
+            return _truncate(f"Cross-reference '{filename1}'.{column1} → '{filename2}'.{column2}: {total} matching rows (showing {min(20, total)}):\n{sample.to_string()}")
         except Exception as e:
             return f"Error cross-referencing: {str(e)}"
 

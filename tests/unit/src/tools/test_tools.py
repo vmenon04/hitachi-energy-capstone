@@ -43,7 +43,7 @@ class TestGetDataSummary:
         result = tools['get_data_summary'].invoke({'filename': PRIMARY_FILE})
         assert 'Shape: 5 rows, 5 columns' in result
         assert 'Columns:' in result
-        assert 'First 5 rows:' in result
+        assert 'Column types:' in result
 
     def test_summary_contains_all_columns(self, tools):
         """Test that summary includes all column names"""
