@@ -61,7 +61,7 @@ def test_send_insights_email_builds_expected_acs_message(monkeypatch):
     monkeypatch.setattr(
         email_utils,
         "build_html_email",
-        lambda insights_text, csv_name="data.csv": f"<html>{csv_name}:{insights_text}</html>",
+        lambda insights_text, csv_name="data.csv", chart_images=None: f"<html>{csv_name}:{insights_text}</html>",
     )
 
     sent = {}
