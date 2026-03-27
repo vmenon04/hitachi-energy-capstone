@@ -22,8 +22,6 @@ Prerequisites:
 import os
 import msal
 import logging
-import sys
-import uuid
 from dotenv import load_dotenv
 from azure.identity import DefaultAzureCredential
 from azure.keyvault.secrets import SecretClient
