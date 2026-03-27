@@ -152,7 +152,7 @@ def generate_insights(data: dict[str, pd.DataFrame]):
     messages = [HumanMessage(content=INSIGHTS_HUMAN)]
 
     logger.info("Starting insight generation with tool calls")
-    result = _llm_retry(lambda: agent.invoke({"messages": messages}))
+    result = _llm_retry(lambda: agent.invoke({"messages": messages}))()
     return result
 
 def build_dataset_metadata(dfs: dict[str, pd.DataFrame]) -> str:
@@ -194,7 +194,7 @@ def generate_chart_plan(dfs: dict[str, pd.DataFrame], insights_text: str) -> dic
         HumanMessage(content=human_prompt),
     ]
 
-    response = _llm_retry(lambda: llm.invoke(messages))
+    response = _llm_retry(lambda: llm.invoke(messages))()
     raw = response.content.strip()
 
     logger.info("Raw chart planner output received")
