@@ -12,6 +12,7 @@ param sharepointClientId string = ''
 param sharepointTenantId string = ''
 param sharepointDriveId string = ''
 param sharepointFolderId string = 'root'
+param sharepointFolderName string = 'Project_Data'
 
 // create a unique suffix to avoid naming collisions
 var uniqueSuffix = uniqueString(resourceGroup().id)
@@ -93,6 +94,7 @@ module containerModule 'container.bicep' = {
     sharepointTenantId: sharepointTenantId
     sharepointDriveId: sharepointDriveId
     sharepointFolderId: sharepointFolderId
+    sharepointFolderName: sharepointFolderName
   }
 }
 

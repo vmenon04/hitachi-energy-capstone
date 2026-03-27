@@ -28,6 +28,7 @@ param sharepointClientId string = ''
 param sharepointTenantId string = ''
 param sharepointDriveId string = ''
 param sharepointFolderId string = 'root'
+param sharepointFolderName string = ''
 
 resource acr 'Microsoft.ContainerRegistry/registries@2023-07-01' = {
   name: acrName
@@ -165,6 +166,7 @@ resource containerAppJob 'Microsoft.App/jobs@2024-03-01' = if (deployContainerJo
               { name: 'SHAREPOINT_CLIENT_ID',            value: sharepointClientId }
               { name: 'SHAREPOINT_DRIVE_ID',             value: sharepointDriveId }
               { name: 'SHAREPOINT_FOLDER_ID',            value: sharepointFolderId }
+              { name: 'SHAREPOINT_FOLDER_NAME',          value: sharepointFolderName }
             ] : [],
             // Work-account extras: client secret (from KV ref) and tenant ID
             sharepointWorkEnabled ? [
