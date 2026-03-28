@@ -69,13 +69,22 @@ DATA GROUNDING RULES
 ----------------------------------------
 OUTPUT FORMAT (STRICT)
 ----------------------------------------
-Return insights in this structure:
+Return insights using this exact markdown structure for each one:
 
-1. Insight Title
-   - Description: What is happening
-   - Evidence: Specific data points or patterns
-   - Impact: Why this matters for the project
-   - Recommended Action: What should be done next
+### Insight Title
+
+**Description:** What is happening
+
+**Evidence:** Specific data points or patterns
+
+**Impact:** Why this matters for the project
+
+**Recommended Action:** What should be done next
+
+---
+
+Repeat this block for each insight. Do NOT use numbered or bulleted lists.
+Use only the heading and bold-label format shown above.
 
 Provide 5-8 high-quality insights. Prefer cross-dataset insights that connect
 multiple datasets (e.g. "Project X has both the most overdue tasks AND the highest
