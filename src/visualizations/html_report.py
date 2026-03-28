@@ -1,13 +1,18 @@
 from __future__ import annotations
 
 import base64
+import io
 import tempfile
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
+import matplotlib
+matplotlib.use("Agg")  # non-interactive backend - no display or Chrome required
+import matplotlib.pyplot as plt
 import pandas as pd
 import plotly.express as px
-from azure.storage.blob import BlobServiceClient
+from azure.storage.blob import BlobServiceClient, BlobSasPermissions, generate_blob_sas
 
 
 def _safe_name(name: str) -> str:
@@ -108,14 +113,29 @@ def _render_chart_html(
         yaxis_title=f"{aggregation}({y})" if y else "count",
     )
 
+    # Write a standalone interactive HTML file for blob storage upload
     filename = f"{_safe_name(dataset_name)}_{idx}_{chart_type}.html"
     local_path = tmp_dir / filename
     fig.write_html(str(local_path), include_plotlyjs="cdn")
 
-    png_path = tmp_dir / filename.replace(".html", ".png")
-    fig.write_image(str(png_path), format="png", width=700, height=400, scale=1.5)
-    with open(png_path, "rb") as img_f:
-        image_b64 = base64.b64encode(img_f.read()).decode("utf-8")
+    # Generate a static PNG for email embedding using matplotlib (no Chrome/Kaleido needed)
+    fig_mpl, ax = plt.subplots(figsize=(7, 4))
+    x_labels = grouped[x].astype(str)
+    if chart_type == "bar":
+        ax.bar(x_labels, grouped["value"])
+    else:
+        ax.plot(x_labels, grouped["value"], marker="o")
+    ax.set_title(title)
+    ax.set_xlabel(x)
+    ax.set_ylabel(f"{aggregation}({y})" if y else "count")
+    if len(x_labels) > 6:
+        plt.xticks(rotation=45, ha="right")
+    plt.tight_layout()
+    buf = io.BytesIO()
+    fig_mpl.savefig(buf, format="png", dpi=150)
+    plt.close(fig_mpl)
+    buf.seek(0)
+    image_b64 = base64.b64encode(buf.read()).decode("utf-8")
 
     return {
         "dataset": dataset_name,
@@ -135,11 +155,11 @@ def build_and_upload_chart_htmls(
 ) -> Tuple[List[str], List[dict]]:
     """
     Generates interactive HTML charts from the AI chart plan, uploads them to
-    Blob Storage, and returns local temp file paths and PNG image data for
-    inline email embedding.
+    Blob Storage, and returns local temp file paths and per-chart dicts containing
+    a base64 PNG (for email inline embedding) and a 7-day SAS URL (for interactive viewing).
 
     Files are written to a temp directory that persists for the lifetime of the
-    process — the Container App Job exits after send, so no explicit cleanup is
+    process. The Container App Job exits after send, so no explicit cleanup is
     needed.
 
     Args:
@@ -150,7 +170,7 @@ def build_and_upload_chart_htmls(
         blob_prefix: Prefix applied to every blob name inside the container.
 
     Returns:
-        Tuple of (local HTML paths, list of {title, image_b64} dicts for email).
+        Tuple of (local HTML paths, list of {title, image_b64, sas_url} dicts for email).
     """
     blob_service = BlobServiceClient.from_connection_string(connection_string)
     container = blob_service.get_container_client(container_name)
@@ -158,6 +178,9 @@ def build_and_upload_chart_htmls(
     tmp_dir = Path(tempfile.mkdtemp(prefix="hitachi_charts_"))
     local_paths: List[str] = []
     chart_images: List[dict] = []
+
+    # SAS tokens expire after 7 days (enough time for the recipient to act)
+    sas_expiry = datetime.now(timezone.utc) + timedelta(days=7)
 
     datasets = chart_plan.get("datasets", [])
     for dataset_entry in datasets:
@@ -188,9 +211,28 @@ def build_and_upload_chart_htmls(
                 with open(entry["local_path"], "rb") as f:
                     container.get_blob_client(blob_name).upload_blob(f, overwrite=True)
 
+                # Build a time-limited SAS URL so email recipients can open the
+                # interactive chart in their browser without any Azure login
+                sas_token = generate_blob_sas(
+                    account_name=blob_service.account_name,
+                    container_name=container_name,
+                    blob_name=blob_name,
+                    account_key=blob_service.credential.account_key,
+                    permission=BlobSasPermissions(read=True),
+                    expiry=sas_expiry,
+                )
+                sas_url = (
+                    f"https://{blob_service.account_name}.blob.core.windows.net"
+                    f"/{container_name}/{blob_name}?{sas_token}"
+                )
+
                 print(f"[DEBUG] Uploaded chart to blob: {container_name}/{blob_name}")
                 local_paths.append(entry["local_path"])
-                chart_images.append({"title": entry["title"], "image_b64": entry["image_b64"]})
+                chart_images.append({
+                    "title": entry["title"],
+                    "image_b64": entry["image_b64"],
+                    "sas_url": sas_url,
+                })
 
             except Exception as e:
                 print(f"[ERROR] Failed to render chart for {dataset_name}: {e}")
