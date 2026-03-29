@@ -12,7 +12,7 @@ matplotlib.use("Agg")  # non-interactive backend - no display or Chrome required
 import matplotlib.pyplot as plt
 import pandas as pd
 import plotly.express as px
-from azure.storage.blob import BlobServiceClient, BlobSasPermissions, generate_blob_sas
+from azure.storage.blob import BlobServiceClient, BlobSasPermissions, ContentSettings, generate_blob_sas
 
 
 def _safe_name(name: str) -> str:
@@ -209,7 +209,9 @@ def build_and_upload_chart_htmls(
 
                 blob_name = f"{blob_prefix}{entry['blob_name']}"
                 with open(entry["local_path"], "rb") as f:
-                    container.get_blob_client(blob_name).upload_blob(f, overwrite=True)
+                    container.get_blob_client(blob_name).upload_blob(
+                        f, overwrite=True, content_settings=ContentSettings(content_type="text/html")
+                    )
 
                 # Build a time-limited SAS URL so email recipients can open the
                 # interactive chart in their browser without any Azure login
