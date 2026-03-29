@@ -71,7 +71,7 @@ def main():
             logger.info("Generated %d HTML charts", len(chart_paths))
 
             log_subsection("STEP 6: SEND EMAIL")
-            logger.info("Sending insights email with chart images")
+            logger.info("Sending insights email with chart images and SAS links")
             send_insights_email(
                 insights_text,
                 csv_name="Combined Blob Storage Datasets",

@@ -121,10 +121,18 @@ def build_html_email(
         for chart in chart_images:
             title = chart.get("title", "")
             b64 = chart.get("image_b64", "")
+            sas_url = chart.get("sas_url", "")
+            link_tag = (
+                f'<a href="{sas_url}" class="chart-link" target="_blank">'
+                f'View interactive chart →</a>'
+                if sas_url else ""
+            )
             parts.append(
                 f'<div class="chart-block">'
                 f'<p class="chart-title">{title}</p>'
-                f'<img src="data:image/png;base64,{b64}" alt="{title}" style="width:100%;max-width:700px;display:block;margin:0 auto;"/>'
+                f'<img src="data:image/png;base64,{b64}" alt="{title}"'
+                f' style="width:100%;max-width:700px;display:block;margin:0 auto;"/>'
+                f'{link_tag}'
                 f'</div>'
             )
         charts_html = "\n".join(parts)
