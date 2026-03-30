@@ -38,6 +38,8 @@ jobs:
     name: Run All Tests (before deployment)
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    permissions:
+      contents: write  # needed to push coverage-badge.json to the badges branch
     steps:
       - uses: actions/checkout@v5
  
@@ -57,7 +59,53 @@ jobs:
  
       - name: Run all tests
         run: pytest tests/ -v --tb=short
- 
+
+      - name: Extract coverage percentage
+        id: coverage
+        if: github.event_name == 'push' && (github.ref_name == 'development' || github.ref_name == 'main')
+        run: |
+          PCT=$(python -c "
+          import xml.etree.ElementTree as ET
+          tree = ET.parse('coverage.xml')
+          root = tree.getroot()
+          print(round(float(root.attrib['line-rate']) * 100, 1))
+          ")
+          echo "pct=$PCT" >> $GITHUB_OUTPUT
+          # Determine badge color
+          if python -c "import sys; sys.exit(0 if float('$PCT') >= 80 else 1)"; then
+            echo "color=brightgreen" >> $GITHUB_OUTPUT
+          elif python -c "import sys; sys.exit(0 if float('$PCT') >= 60 else 1)"; then
+            echo "color=yellow" >> $GITHUB_OUTPUT
+          else
+            echo "color=red" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Update coverage badge
+        if: github.event_name == 'push' && (github.ref_name == 'development' || github.ref_name == 'main')
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          PCT="${{ steps.coverage.outputs.pct }}"
+          COLOR="${{ steps.coverage.outputs.color }}"
+          echo "{\"schemaVersion\":1,\"label\":\"coverage\",\"message\":\"${PCT}%\",\"color\":\"${COLOR}\"}" > /tmp/coverage-badge.json
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          # Checkout badges branch (create orphan if it doesn't exist yet)
+          if git ls-remote --exit-code --heads origin badges; then
+            git fetch origin badges:refs/remotes/origin/badges
+            git checkout -B badges refs/remotes/origin/badges
+          else
+            git checkout --orphan badges
+            git rm -rf . > /dev/null 2>&1 || true
+          fi
+
+          cp /tmp/coverage-badge.json coverage-badge.json
+          git add coverage-badge.json
+          git diff --staged --quiet || git commit -m "chore: update coverage badge [skip ci]"
+          git push "https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.repository }}.git" badges
+
       - name: Build Docker image (validation only)
         run: docker build -t hitachi-app:pr-${{ github.sha }} .
 
