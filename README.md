@@ -20,7 +20,7 @@
     <img src="https://github.com/ncstate-csc-sdc/2026Spring-Team14-Hitachi-2/actions/workflows/deploy.yml/badge.svg?branch=development" alt="Deployment Workflow" />
   </a>
   <a href="https://github.com/ncstate-csc-sdc/2026Spring-Team14-Hitachi-2/actions/workflows/deploy.yml">
-    <img src="https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/ncstate-csc-sdc/2026Spring-Team14-Hitachi-2/badges/coverage-badge.json" alt="Coverage" />
+    <img src="docs/badges/coverage.svg" alt="Coverage" />
   </a>
   <br/><br/>
   <!-- Stack -->

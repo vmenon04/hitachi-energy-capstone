@@ -60,53 +60,56 @@ jobs:
       - name: Run all tests
         run: pytest tests/ -v --tb=short
 
-      - name: Extract coverage percentage
-        id: coverage
-        if: github.event_name == 'push' && (github.ref_name == 'development' || github.ref_name == 'main')
-        run: |
-          PCT=$(python -c "
-          import xml.etree.ElementTree as ET
-          tree = ET.parse('coverage.xml')
-          root = tree.getroot()
-          print(round(float(root.attrib['line-rate']) * 100, 1))
-          ")
-          echo "pct=$PCT" >> $GITHUB_OUTPUT
-          # Determine badge color
-          if python -c "import sys; sys.exit(0 if float('$PCT') >= 80 else 1)"; then
-            echo "color=brightgreen" >> $GITHUB_OUTPUT
-          elif python -c "import sys; sys.exit(0 if float('$PCT') >= 60 else 1)"; then
-            echo "color=yellow" >> $GITHUB_OUTPUT
-          else
-            echo "color=red" >> $GITHUB_OUTPUT
-          fi
-
       - name: Update coverage badge
         if: github.event_name == 'push' && (github.ref_name == 'development' || github.ref_name == 'main')
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          BRANCH: ${{ github.ref_name }}
         run: |
-          PCT="${{ steps.coverage.outputs.pct }}"
-          COLOR="${{ steps.coverage.outputs.color }}"
-          BADGE_JSON="{\"schemaVersion\":1,\"label\":\"coverage\",\"message\":\"${PCT}%\",\"color\":\"${COLOR}\"}"
+          pip install anybadge --quiet
+          python - <<'EOF'
+          import xml.etree.ElementTree as ET, anybadge, base64, json, os
+          import urllib.request, urllib.error
 
-          REPO_URL="https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.repository }}.git"
+          # Parse coverage
+          pct = round(float(ET.parse('coverage.xml').getroot().attrib['line-rate']) * 100, 1)
+          color = 'green' if pct >= 80 else ('yellow' if pct >= 60 else 'red')
 
-          # Work in a separate temp directory so the main workspace is untouched
-          TMPDIR=$(mktemp -d)
-          if git ls-remote --exit-code --heads origin badges; then
-            git clone --branch badges --depth 1 "$REPO_URL" "$TMPDIR"
-          else
-            git init "$TMPDIR"
-            git -C "$TMPDIR" checkout --orphan badges
-          fi
+          # Generate badge SVG
+          badge = anybadge.Badge('coverage', f'{pct}%', default_color=color)
+          badge.write_badge('/tmp/coverage.svg', overwrite=True)
 
-          git -C "$TMPDIR" config user.name "github-actions[bot]"
-          git -C "$TMPDIR" config user.email "github-actions[bot]@users.noreply.github.com"
+          with open('/tmp/coverage.svg', 'rb') as f:
+              content = base64.b64encode(f.read()).decode()
 
-          echo "$BADGE_JSON" > "$TMPDIR/coverage-badge.json"
-          git -C "$TMPDIR" add coverage-badge.json
-          git -C "$TMPDIR" diff --staged --quiet || git -C "$TMPDIR" commit -m "chore: update coverage badge [skip ci]"
-          git -C "$TMPDIR" push "$REPO_URL" badges
+          token  = os.environ['GITHUB_TOKEN']
+          repo   = os.environ['REPO']
+          branch = os.environ['BRANCH']
+          headers = {
+              'Authorization': f'token {token}',
+              'Accept': 'application/vnd.github+json',
+              'Content-Type': 'application/json',
+          }
+          api_url = f'https://api.github.com/repos/{repo}/contents/docs/badges/coverage.svg'
+
+          # Get existing file SHA (required for updates)
+          sha = ''
+          try:
+              req = urllib.request.Request(f'{api_url}?ref={branch}', headers=headers)
+              with urllib.request.urlopen(req) as r:
+                  sha = json.load(r).get('sha', '')
+          except urllib.error.HTTPError:
+              pass
+
+          body = {'message': 'chore: update coverage badge [skip ci]', 'content': content, 'branch': branch}
+          if sha:
+              body['sha'] = sha
+
+          req2 = urllib.request.Request(api_url, data=json.dumps(body).encode(), method='PUT', headers=headers)
+          with urllib.request.urlopen(req2):
+              print(f'Badge updated: {pct}% ({color})')
+          EOF
 
       - name: Build Docker image (validation only)
         run: docker build -t hitachi-app:pr-${{ github.sha }} .
