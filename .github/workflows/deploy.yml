@@ -38,8 +38,6 @@ jobs:
     name: Run All Tests (before deployment)
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    permissions:
-      contents: write  # needed to push coverage-badge.json to the badges branch
     steps:
       - uses: actions/checkout@v5
  
@@ -59,57 +57,6 @@ jobs:
  
       - name: Run all tests
         run: pytest tests/ -v --tb=short
-
-      - name: Update coverage badge
-        if: github.event_name == 'push' && (github.ref_name == 'development' || github.ref_name == 'main')
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          REPO: ${{ github.repository }}
-          BRANCH: ${{ github.ref_name }}
-        run: |
-          pip install anybadge --quiet
-          python - <<'EOF'
-          import xml.etree.ElementTree as ET, anybadge, base64, json, os
-          import urllib.request, urllib.error
-
-          # Parse coverage
-          pct = round(float(ET.parse('coverage.xml').getroot().attrib['line-rate']) * 100, 1)
-          color = 'green' if pct >= 80 else ('yellow' if pct >= 60 else 'red')
-
-          # Generate badge SVG
-          badge = anybadge.Badge('coverage', f'{pct}%', default_color=color)
-          badge.write_badge('/tmp/coverage.svg', overwrite=True)
-
-          with open('/tmp/coverage.svg', 'rb') as f:
-              content = base64.b64encode(f.read()).decode()
-
-          token  = os.environ['GITHUB_TOKEN']
-          repo   = os.environ['REPO']
-          branch = os.environ['BRANCH']
-          headers = {
-              'Authorization': f'token {token}',
-              'Accept': 'application/vnd.github+json',
-              'Content-Type': 'application/json',
-          }
-          api_url = f'https://api.github.com/repos/{repo}/contents/docs/badges/coverage.svg'
-
-          # Get existing file SHA (required for updates)
-          sha = ''
-          try:
-              req = urllib.request.Request(f'{api_url}?ref={branch}', headers=headers)
-              with urllib.request.urlopen(req) as r:
-                  sha = json.load(r).get('sha', '')
-          except urllib.error.HTTPError:
-              pass
-
-          body = {'message': '[bot chore]: Updated coverage badge', 'content': content, 'branch': branch}
-          if sha:
-              body['sha'] = sha
-
-          req2 = urllib.request.Request(api_url, data=json.dumps(body).encode(), method='PUT', headers=headers)
-          with urllib.request.urlopen(req2):
-              print(f'Badge updated: {pct}% ({color})')
-          EOF
 
       - name: Build Docker image (validation only)
         run: docker build -t hitachi-app:pr-${{ github.sha }} .
