@@ -87,24 +87,26 @@ jobs:
         run: |
           PCT="${{ steps.coverage.outputs.pct }}"
           COLOR="${{ steps.coverage.outputs.color }}"
-          echo "{\"schemaVersion\":1,\"label\":\"coverage\",\"message\":\"${PCT}%\",\"color\":\"${COLOR}\"}" > /tmp/coverage-badge.json
+          BADGE_JSON="{\"schemaVersion\":1,\"label\":\"coverage\",\"message\":\"${PCT}%\",\"color\":\"${COLOR}\"}"
 
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
+          REPO_URL="https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.repository }}.git"
 
-          # Checkout badges branch (create orphan if it doesn't exist yet)
+          # Work in a separate temp directory so the main workspace is untouched
+          TMPDIR=$(mktemp -d)
           if git ls-remote --exit-code --heads origin badges; then
-            git fetch origin badges:refs/remotes/origin/badges
-            git checkout -B badges refs/remotes/origin/badges
+            git clone --branch badges --depth 1 "$REPO_URL" "$TMPDIR"
           else
-            git checkout --orphan badges
-            git rm -rf . > /dev/null 2>&1 || true
+            git init "$TMPDIR"
+            git -C "$TMPDIR" checkout --orphan badges
           fi
 
-          cp /tmp/coverage-badge.json coverage-badge.json
-          git add coverage-badge.json
-          git diff --staged --quiet || git commit -m "chore: update coverage badge [skip ci]"
-          git push "https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.repository }}.git" badges
+          git -C "$TMPDIR" config user.name "github-actions[bot]"
+          git -C "$TMPDIR" config user.email "github-actions[bot]@users.noreply.github.com"
+
+          echo "$BADGE_JSON" > "$TMPDIR/coverage-badge.json"
+          git -C "$TMPDIR" add coverage-badge.json
+          git -C "$TMPDIR" diff --staged --quiet || git -C "$TMPDIR" commit -m "chore: update coverage badge [skip ci]"
+          git -C "$TMPDIR" push "$REPO_URL" badges
 
       - name: Build Docker image (validation only)
         run: docker build -t hitachi-app:pr-${{ github.sha }} .
