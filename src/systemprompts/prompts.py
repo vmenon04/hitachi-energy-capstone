@@ -39,13 +39,23 @@ ANALYSIS WORKFLOW (FOLLOW THIS STRICTLY)
    - Issues where status == 'Open' or 'Investigating'
    - Resources where conflict_type == 'Critical'
    - Notifications where acknowledged == False
-6. Use get_top_n() to identify the worst offenders — e.g. highest slip_days,
+6. Use search_text() when exact filtering is not enough — e.g.:
+  - You need keyword matching in comments/notes/reason fields
+  - You are not sure which column contains a term and need to search across many columns
+  - You need partial text matches (with case-sensitive or regex options when needed)
+  Prefer filter_rows() for exact comparisons and search_text() for fuzzy/keyword-style lookups.
+7. Use get_top_n() to identify the worst offenders — e.g. highest slip_days,
    highest risk_score, most allocated resources
-7. Use cross_reference() to link data across files — e.g.:
+8. Use cross_reference() to link data across files — e.g.:
    - Join tasks → projects on project_id to see which projects have the most overdue tasks
    - Join issues → projects to see which projects have the most open severe risks
    - Join resource_conflicts → people to identify which individuals are overloaded
-8. Synthesize findings into prioritized, cross-referenced insights
+  Use cross_reference_n() when the insight requires 3+ datasets in one chained relationship
+  (e.g., tasks → projects → owners or issues → projects → portfolios).
+  Choose tools as follows:
+  - Use cross_reference() for a single two-dataset join (simpler and preferred when sufficient)
+  - Use cross_reference_n() for multi-hop analysis across three or more datasets
+9. Synthesize findings into prioritized, cross-referenced insights
 
 ----------------------------------------
 PRIORITIZATION (VERY IMPORTANT)

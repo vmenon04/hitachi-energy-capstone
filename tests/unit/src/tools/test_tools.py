@@ -21,9 +21,14 @@ def sample_dataframe():
 @pytest.fixture
 def tools(sample_dataframe):
     """Get tools initialized with sample data"""
+    departments = pd.DataFrame({
+        'department': ['Sales', 'IT', 'HR'],
+        'manager': ['Sam', 'Ira', 'Holly']
+    })
     test_dfs = {
         'Project_Data/file1.csv': sample_dataframe,
         'Project_Data/extra.csv': sample_dataframe.head(2),
+        'Project_Data/departments.csv': departments,
     }
     return {tool.name: tool for tool in get_tools(test_dfs)}
 
@@ -206,3 +211,76 @@ class TestCrossReference:
     def test_cross_reference_missing_dataset(self, tools):
         result = tools['cross_reference'].invoke({'filename1': 'fake.csv', 'column1': 'id', 'filename2': 'Project_Data/extra.csv', 'column2': 'id'})
         assert 'not found' in result
+
+
+class TestCrossReferenceN:
+    def test_cross_reference_n_join(self, tools):
+        result = tools['cross_reference_n'].invoke({
+            'base_filename': PRIMARY_FILE,
+            'joins': [
+                {'filename': 'Project_Data/extra.csv', 'left_on': 'id', 'right_on': 'id'},
+                {'filename': 'Project_Data/departments.csv', 'left_on': 'department', 'right_on': 'department'}
+            ]
+        })
+        assert 'Cross-reference across 3 datasets' in result
+        assert 'matching rows' in result
+        assert 'manager' in result
+
+    def test_cross_reference_n_empty_joins(self, tools):
+        result = tools['cross_reference_n'].invoke({'base_filename': PRIMARY_FILE, 'joins': []})
+        assert 'No joins provided' in result
+
+    def test_cross_reference_n_missing_required_fields(self, tools):
+        result = tools['cross_reference_n'].invoke({
+            'base_filename': PRIMARY_FILE,
+            'joins': [{'filename': 'Project_Data/extra.csv', 'left_on': 'id'}]
+        })
+        assert 'missing required fields' in result
+
+    def test_cross_reference_n_invalid_join_type(self, tools):
+        result = tools['cross_reference_n'].invoke({
+            'base_filename': PRIMARY_FILE,
+            'joins': [{'filename': 'Project_Data/extra.csv', 'left_on': 'id', 'right_on': 'id', 'how': 'sideways'}]
+        })
+        assert 'invalid join type' in result
+
+    def test_cross_reference_n_missing_filter_column(self, tools):
+        result = tools['cross_reference_n'].invoke({
+            'base_filename': PRIMARY_FILE,
+            'joins': [{
+                'filename': 'Project_Data/departments.csv',
+                'left_on': 'department',
+                'right_on': 'department',
+                'filter_column': 'missing_col',
+                'filter_value': 'x'
+            }]
+        })
+        assert 'filter column' in result
+
+
+class TestSearchText:
+    def test_search_text_across_all_columns(self, tools):
+        result = tools['search_text'].invoke({'filename': PRIMARY_FILE, 'query': 'alice'})
+        assert 'matching rows' in result
+        assert 'Alice' in result
+
+    def test_search_text_column_scope(self, tools):
+        result = tools['search_text'].invoke({'filename': PRIMARY_FILE, 'query': 'Sales', 'columns': 'department'})
+        assert '2 matching rows' in result
+
+    def test_search_text_case_sensitive(self, tools):
+        result = tools['search_text'].invoke({'filename': PRIMARY_FILE, 'query': 'alice', 'case': True})
+        assert '0 matching rows' in result
+
+    def test_search_text_regex(self, tools):
+        result = tools['search_text'].invoke({'filename': PRIMARY_FILE, 'query': '^A', 'columns': 'name', 'regex': True})
+        assert '1 matching rows' in result
+        assert 'Alice' in result
+
+    def test_search_text_invalid_columns(self, tools):
+        result = tools['search_text'].invoke({'filename': PRIMARY_FILE, 'query': 'x', 'columns': 'bad_column'})
+        assert 'Column(s) not found' in result
+
+    def test_search_text_empty_query(self, tools):
+        result = tools['search_text'].invoke({'filename': PRIMARY_FILE, 'query': ''})
+        assert 'cannot be empty' in result
