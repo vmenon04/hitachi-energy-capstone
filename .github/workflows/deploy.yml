@@ -38,6 +38,7 @@ jobs:
     name: Run All Tests (before deployment)
     runs-on: ubuntu-latest
     timeout-minutes: 15
+
     steps:
       - uses: actions/checkout@v5
  
@@ -54,6 +55,21 @@ jobs:
  
       - name: Install Bicep
         run: az bicep install
+
+      - name: Start Azurite blob service
+        run: |
+          npm install -g azurite
+          mkdir -p /tmp/azurite
+          azurite-blob \
+            --location /tmp/azurite \
+            --skipApiVersionCheck \
+            --blobHost 0.0.0.0 \
+            --silent &
+          # Wait up to 15 s for the blob service to be ready
+          for i in $(seq 15); do
+            nc -z 127.0.0.1 10000 && echo "Azurite ready" && break
+            sleep 1
+          done
  
       - name: Run all tests
         run: pytest tests/ -v --tb=short
