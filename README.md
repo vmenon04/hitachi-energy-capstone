@@ -17,9 +17,11 @@
   <br/><br/>
   <!-- CI/CD -->
   <a href="https://github.com/ncstate-csc-sdc/2026Spring-Team14-Hitachi-2/actions/workflows/deploy.yml">
+    <img src="https://github.com/ncstate-csc-sdc/2026Spring-Team14-Hitachi-2/actions/workflows/deploy.yml/badge.svg?branch=development" alt="Deployment Workflow" />
+  </a>
+  <a href="https://github.com/ncstate-csc-sdc/2026Spring-Team14-Hitachi-2/actions/workflows/deploy.yml">
     <img src="https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/ncstate-csc-sdc/2026Spring-Team14-Hitachi-2/badges/coverage-badge.json" alt="Coverage" />
   </a>
-  <img src="https://img.shields.io/badge/deploy-GitHub%20Actions-2088FF" alt="Deploy: GitHub Actions" />
   <br/><br/>
   <!-- Stack -->
   <img src="https://img.shields.io/badge/python-3.11-blue" alt="Python 3.11" />
