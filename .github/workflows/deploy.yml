@@ -102,7 +102,7 @@ jobs:
           except urllib.error.HTTPError:
               pass
 
-          body = {'message': 'chore: update coverage badge [skip ci]', 'content': content, 'branch': branch}
+          body = {'message': '[bot chore]: Updated coverage badge', 'content': content, 'branch': branch}
           if sha:
               body['sha'] = sha
 
