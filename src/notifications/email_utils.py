@@ -110,33 +110,72 @@ def _build_attachments(attachment_paths: list[str] | None) -> list[dict]:
 def build_html_email(
     insights_text: str,
     csv_name: str = "data.csv",
-    chart_images: list[dict] | None = None,
+    chart_images: dict[str, list[dict]] | None = None,
 ) -> str:
     """Render insights text (plain text / Markdown) into the full HTML template."""
     date_str = datetime.now().strftime("%B %d, %Y at %H:%M")
-    insights_html = _md_to_html(insights_text)
+    chart_images = chart_images or {}
 
-    charts_html = ""
-    if chart_images:
-        parts = []
-        for chart in chart_images:
-            title = chart.get("title", "")
-            b64 = chart.get("image_b64", "")
-            sas_url = chart.get("sas_url", "")
-            link_tag = (
-                f'<a href="{sas_url}" class="chart-link" target="_blank">'
-                f'View interactive chart →</a>'
-                if sas_url else ""
-            )
-            parts.append(
-                f'<div class="chart-block">'
-                f'<p class="chart-title">{title}</p>'
-                f'<img src="data:image/png;base64,{b64}" alt="{title}"'
-                f' style="width:100%;max-width:700px;display:block;margin:0 auto;"/>'
-                f'{link_tag}'
-                f'</div>'
-            )
-        charts_html = "\n".join(parts)
+    def _norm(s: str) -> str:
+        return s.lower().strip()
+
+    def _chart_block(chart: dict) -> str:
+        title = chart.get("title", "")
+        b64 = chart.get("image_b64", "")
+        sas_url = chart.get("sas_url", "")
+        link_tag = (
+            f'<a href="{sas_url}" class="chart-link" target="_blank">'
+            f'View interactive chart \u2192</a>'
+            if sas_url else ""
+        )
+        return (
+            f'<div class="chart-block">'
+            f'<p class="chart-title">{title}</p>'
+            f'<img src="data:image/png;base64,{b64}" alt="{title}"'
+            f' style="width:100%;max-width:700px;display:block;margin:0 auto;"/>'
+            f'{link_tag}'
+            f'</div>'
+        )
+
+    # Build a normalised lookup so minor LLM title drift still matches
+    normalized_map = {_norm(k): v for k, v in chart_images.items()}
+    matched_titles: set[str] = set()
+
+    # Split insights on ### headings so each section is followed by its charts
+    sections = re.split(r'(?m)^(?=### )', insights_text.strip())
+    html_parts: list[str] = []
+
+    for section in sections:
+        if not section.strip():
+            continue
+        html_parts.append(_md_to_html(section.strip()))
+
+        title_match = re.match(r'^### (.+)', section)
+        if title_match and normalized_map:
+            norm_title = _norm(title_match.group(1))
+            charts = normalized_map.get(norm_title, [])
+            if not charts:
+                # Substring fallback for minor LLM title drift
+                for key, val in normalized_map.items():
+                    if norm_title in key or key in norm_title:
+                        charts = val
+                        norm_title = key
+                        break
+            for chart in charts:
+                html_parts.append(_chart_block(chart))
+            if charts:
+                matched_titles.add(norm_title)
+
+    insights_html = "\n".join(html_parts)
+
+    # Charts not matched to any insight fall through to the bottom
+    fallback_blocks = [
+        _chart_block(chart)
+        for key, charts_list in normalized_map.items()
+        if key not in matched_titles
+        for chart in charts_list
+    ]
+    charts_html = "\n".join(fallback_blocks)
 
     return _load_email_template().safe_substitute(
         date_str=date_str,

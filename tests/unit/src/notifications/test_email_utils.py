@@ -29,6 +29,57 @@ def test_build_html_email_renders_template_content(monkeypatch):
     assert "${insights_html}" not in html
 
 
+def test_build_html_email_inlines_charts_after_matching_insight(monkeypatch):
+    template_path = (
+        Path(email_utils.__file__).resolve().parent
+        / "templates"
+        / "insights_email.html"
+    )
+    monkeypatch.setattr(email_utils, "_TEMPLATE_PATH", template_path)
+
+    insights = "### Risk Alpha\n\nSome detail.\n\n---\n\n### Risk Beta\n\nOther detail."
+    chart_images = {
+        "Risk Alpha": [{"title": "Alpha chart", "image_b64": "abc", "sas_url": "https://example.com/alpha"}],
+        "Risk Beta": [{"title": "Beta chart", "image_b64": "xyz", "sas_url": ""}],
+    }
+
+    html = email_utils.build_html_email(insights, chart_images=chart_images)
+
+    alpha_chart_pos = html.index("Alpha chart")
+    beta_chart_pos = html.index("Beta chart")
+    risk_alpha_pos = html.index("Risk Alpha")
+    risk_beta_pos = html.index("Risk Beta")
+
+    # Each chart must appear after its own insight heading
+    assert alpha_chart_pos > risk_alpha_pos
+    assert beta_chart_pos > risk_beta_pos
+    # Alpha's chart must appear before Beta's heading
+    assert alpha_chart_pos < risk_beta_pos
+
+
+def test_build_html_email_unmatched_charts_go_to_bottom(monkeypatch):
+    template_path = (
+        Path(email_utils.__file__).resolve().parent
+        / "templates"
+        / "insights_email.html"
+    )
+    monkeypatch.setattr(email_utils, "_TEMPLATE_PATH", template_path)
+
+    insights = "### Known Insight\n\nSome detail."
+    chart_images = {
+        "Known Insight": [{"title": "Matched chart", "image_b64": "a", "sas_url": ""}],
+        "Unrelated Title": [{"title": "Unmatched chart", "image_b64": "b", "sas_url": ""}],
+    }
+
+    html = email_utils.build_html_email(insights, chart_images=chart_images)
+
+    matched_pos = html.index("Matched chart")
+    unmatched_pos = html.index("Unmatched chart")
+
+    # Unmatched chart falls through to after all insight sections
+    assert unmatched_pos > matched_pos
+
+
 def test_load_email_template_raises_if_file_missing(monkeypatch, tmp_path):
     missing_path = tmp_path / "missing_template.html"
     monkeypatch.setattr(email_utils, "_TEMPLATE_PATH", missing_path)
