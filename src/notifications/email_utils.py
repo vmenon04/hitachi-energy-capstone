@@ -9,6 +9,7 @@ Required environment variables (injected from Key Vault by the Container App Job
 """
 
 import os
+import re
 from functools import lru_cache
 from pathlib import Path
 from string import Template
@@ -154,7 +155,7 @@ def send_insights_email(
     sender: Optional[str] = None,
     connection_string: Optional[str] = None,
     attachment_paths: list[str] | None = None,
-    chart_images: list[dict] | None = None,
+    chart_images: dict[str, list[dict]] | None = None,
 ) -> None:
     """Send an HTML insights email via the ACS Email SDK."""
     conn_str = connection_string or _ACS_CONNECTION_STRING
@@ -179,7 +180,8 @@ def send_insights_email(
     print(f"\n{'─' * 50}")
     print(f"  To          : {to_addr}")
     print(f"  Subject     : {subject}")
-    print(f"  Charts      : {len(chart_images) if chart_images else 0} inline image(s)")
+    total_charts = sum(len(v) for v in chart_images.values()) if chart_images else 0
+    print(f"  Charts      : {total_charts} inline image(s)")
     print(f"{'─' * 50}")
 
     if not conn_str or conn_str.strip().lower() == "local":

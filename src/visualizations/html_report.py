@@ -152,7 +152,7 @@ def build_and_upload_chart_htmls(
     connection_string: str,
     container_name: str,
     blob_prefix: str = "charts/",
-) -> Tuple[List[str], List[dict]]:
+) -> Tuple[List[str], Dict[str, List[dict]]]:
     """
     Generates interactive HTML charts from the AI chart plan, uploads them to
     Blob Storage, and returns local temp file paths and per-chart dicts containing
@@ -170,14 +170,14 @@ def build_and_upload_chart_htmls(
         blob_prefix: Prefix applied to every blob name inside the container.
 
     Returns:
-        Tuple of (local HTML paths, list of {title, image_b64, sas_url} dicts for email).
+        Tuple of (local HTML paths, dict mapping insight_title -> list of {title, image_b64, sas_url}).
     """
     blob_service = BlobServiceClient.from_connection_string(connection_string)
     container = blob_service.get_container_client(container_name)
 
     tmp_dir = Path(tempfile.mkdtemp(prefix="hitachi_charts_"))
     local_paths: List[str] = []
-    chart_images: List[dict] = []
+    chart_images: Dict[str, List[dict]] = {}
 
     # SAS tokens expire after 7 days (enough time for the recipient to act)
     sas_expiry = datetime.now(timezone.utc) + timedelta(days=7)
@@ -185,6 +185,9 @@ def build_and_upload_chart_htmls(
     datasets = chart_plan.get("datasets", [])
     for dataset_entry in datasets:
         dataset_name = dataset_entry.get("dataset_name")
+        # insight_title links charts to their parent insight section in the email;
+        # fall back to dataset_name if the model omitted the field
+        insight_title = dataset_entry.get("insight_title") or dataset_name
         chart_specs = dataset_entry.get("charts", [])
 
         if dataset_name not in dfs:
@@ -230,7 +233,7 @@ def build_and_upload_chart_htmls(
 
                 print(f"[DEBUG] Uploaded chart to blob: {container_name}/{blob_name}")
                 local_paths.append(entry["local_path"])
-                chart_images.append({
+                chart_images.setdefault(insight_title, []).append({
                     "title": entry["title"],
                     "image_b64": entry["image_b64"],
                     "sas_url": sas_url,
