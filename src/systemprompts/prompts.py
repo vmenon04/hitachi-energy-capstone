@@ -164,6 +164,7 @@ Expected JSON format:
   "datasets": [
     {
       "dataset_name": "Project_Data/tasks.csv",
+      "insight_title": "Exact ### heading from the insights summary this dataset's charts support",
       "charts": [
         {
           "chart_type": "bar",
@@ -185,6 +186,8 @@ Expected JSON format:
 }
 
 12. Ensure each chart directly supports or explains a key insight from the summary.
+13. Each dataset entry MUST include an "insight_title" field whose value is the EXACT text
+    of the ### heading from the insights summary that these charts support (copy it verbatim).
 """
 
 CHART_PLANNER_HUMAN_TEMPLATE = """
