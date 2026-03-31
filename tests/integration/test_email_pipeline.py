@@ -163,3 +163,22 @@ class TestSendInsightsEmail:
         # structural content like insight headings must match.
         assert "Resource Allocation Risk" in sent_html
         assert "Budget Overrun" in sent_html
+
+    def test_persona_subject_appears_in_acs_message(self):
+        """When subject is not provided, the persona name drives the subject line."""
+        with patch("src.notifications.email_utils.EmailClient") as mock_acs:
+            mock_acs.from_connection_string.return_value.begin_send.return_value = MagicMock()
+
+            send_insights_email(
+                SAMPLE_INSIGHTS,
+                "projects.csv",
+                recipient="pm@example.com",
+                sender="noreply@example.com",
+                connection_string="Endpoint=sb://fake;SharedAccessKeyName=x;SharedAccessKey=y",
+                chart_images=SAMPLE_CHART_IMAGES,
+                persona="project_manager",
+            )
+
+        sent_msg = mock_acs.from_connection_string.return_value.begin_send.call_args[0][0]
+        assert "Project Manager" in sent_msg["content"]["subject"]
+        assert "Resource Allocation Risk" in sent_msg["content"]["html"]

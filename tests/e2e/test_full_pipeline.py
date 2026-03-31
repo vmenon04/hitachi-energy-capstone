@@ -128,7 +128,7 @@ class TestPipelineHappyPath:
         ):
             pipeline.main()
 
-        mock_email.assert_called_once()
+        assert mock_email.call_count == 3
 
     def test_download_csv_is_called(self, monkeypatch):
         monkeypatch.delenv("SHAREPOINT_CLIENT_ID", raising=False)
@@ -156,7 +156,9 @@ class TestPipelineHappyPath:
         ):
             pipeline.main()
 
-        mock_ins.assert_called_once_with(FAKE_DFS)
+        assert mock_ins.call_count == 3
+        for c in mock_ins.call_args_list:
+            assert c.args[0] is FAKE_DFS
 
     def test_generate_chart_plan_receives_insights_text(self, monkeypatch):
         monkeypatch.delenv("SHAREPOINT_CLIENT_ID", raising=False)
@@ -170,8 +172,9 @@ class TestPipelineHappyPath:
         ):
             pipeline.main()
 
-        _, called_insights_text = mock_cp.call_args[0]
-        assert called_insights_text == FAKE_INSIGHTS
+        assert mock_cp.call_count == 3
+        for c in mock_cp.call_args_list:
+            assert c.args[1] == FAKE_INSIGHTS
 
     def test_build_charts_receives_chart_plan(self, monkeypatch):
         monkeypatch.delenv("SHAREPOINT_CLIENT_ID", raising=False)
@@ -185,7 +188,9 @@ class TestPipelineHappyPath:
         ):
             pipeline.main()
 
-        assert mock_bc.call_args.kwargs["chart_plan"] == FAKE_CHART_PLAN
+        assert mock_bc.call_count == 3
+        for c in mock_bc.call_args_list:
+            assert c.kwargs["chart_plan"] == FAKE_CHART_PLAN
 
     def test_send_email_receives_chart_images(self, monkeypatch):
         monkeypatch.delenv("SHAREPOINT_CLIENT_ID", raising=False)
@@ -199,7 +204,26 @@ class TestPipelineHappyPath:
         ):
             pipeline.main()
 
-        assert mock_email.call_args.kwargs["chart_images"] == FAKE_CHART_IMAGES
+        assert mock_email.call_count == 3
+        for c in mock_email.call_args_list:
+            assert c.kwargs["chart_images"] == FAKE_CHART_IMAGES
+
+    def test_each_persona_receives_distinct_system_prompt(self, monkeypatch):
+        """main() passes a unique system_prompt to generate_insights for each persona."""
+        monkeypatch.delenv("SHAREPOINT_CLIENT_ID", raising=False)
+
+        with (
+            patch(PATCH_DOWNLOAD, return_value=FAKE_DFS),
+            patch(PATCH_INSIGHTS, return_value=_make_insights_result(FAKE_INSIGHTS)) as mock_ins,
+            patch(PATCH_CHART_PLAN, return_value=FAKE_CHART_PLAN),
+            patch(PATCH_BUILD_CHARTS, return_value=([], {})),
+            patch(PATCH_SEND_EMAIL),
+        ):
+            pipeline.main()
+
+        assert mock_ins.call_count == 3
+        system_prompts = [c.kwargs["system_prompt"] for c in mock_ins.call_args_list]
+        assert len(set(system_prompts)) == 3, "Each persona must use a distinct system prompt"
 
 
 class TestSharePointStep:
@@ -326,10 +350,14 @@ class TestPipelineEdgeCases:
         ):
             pipeline.main()
 
-        assert call_order == [
-            "download_csv",
+        assert call_order[0] == "download_csv"
+        persona_steps = call_order[1:]
+        expected_group = [
             "generate_insights",
             "generate_chart_plan",
             "build_and_upload_chart_htmls",
             "send_insights_email",
         ]
+        assert len(persona_steps) == len(expected_group) * 3
+        for i in range(3):
+            assert persona_steps[i * 4 : (i + 1) * 4] == expected_group
