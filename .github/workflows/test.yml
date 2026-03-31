@@ -35,8 +35,44 @@ jobs:
  
       - name: Run unit tests
         run: |
-          set -o pipefail
-          pytest tests/unit/ -v --tb=short --cov=src --cov-report=xml --cov-report=term-missing:skip-covered | tee pytest-coverage.txt
+          pytest tests/unit/ -v --tb=short --cov=src --cov-report=xml
+
+      - name: Build coverage table
+        run: |
+          python - <<'PY'
+          import xml.etree.ElementTree as ET
+          from pathlib import Path
+
+          root = ET.parse("coverage.xml").getroot()
+
+          files = []
+          for cls in root.findall(".//class"):
+            filename = cls.attrib.get("filename", "")
+            line_rate = float(cls.attrib.get("line-rate", "0"))
+            files.append((filename, line_rate))
+
+          merged = {}
+          for filename, rate in files:
+            merged[filename] = max(rate, merged.get(filename, 0.0))
+
+          rows = sorted(merged.items(), key=lambda x: x[0].lower())
+
+          total_rate = float(root.attrib.get("line-rate", "0"))
+          total_pct = f"{total_rate * 100:.1f}%"
+
+          lines = []
+          lines.append("### Coverage Table")
+          lines.append("")
+          lines.append(f"**Total line coverage:** {total_pct}")
+          lines.append("")
+          lines.append("| File | Line Coverage |")
+          lines.append("|---|---:|")
+
+          for filename, rate in rows:
+            lines.append(f"| `{filename}` | {rate * 100:.1f}% |")
+
+          Path("coverage-table.md").write_text("\n".join(lines), encoding="utf-8")
+          PY
 
       - name: Post coverage comment
         uses: actions/github-script@v7
@@ -44,23 +80,11 @@ jobs:
         with:
           script: |
             const fs = require('fs');
-            const coverage = fs.readFileSync('coverage.xml', 'utf8');
-            const report = fs.readFileSync('pytest-coverage.txt', 'utf8');
-            const match = coverage.match(/line-rate="([0-9.]+)"/);
-            const pct = match ? (parseFloat(match[1]) * 100).toFixed(1) : 'unknown';
-            const maxLen = 60000;
-            const trimmed = report.length > maxLen
-              ? report.slice(0, maxLen) + '\n\n...truncated (comment size limit)'
-              : report;
+            const body = fs.readFileSync('coverage-table.md', 'utf8');
             await github.rest.issues.createComment({
               issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body:
-                `### Coverage Report\n\n` +
-                `📊 **${pct}%** line coverage\n\n` +
-                `<details>\n<summary>Full pytest + coverage output</summary>\n\n` +
-                `\`\`\`text\n${trimmed}\n\`\`\`\n` +
-                `</details>`
+              body
             });
     
