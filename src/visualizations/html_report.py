@@ -79,6 +79,7 @@ def _render_chart_html(
     spec: dict,
     tmp_dir: Path,
     idx: int,
+    filename_prefix: Optional[str] = None,
 ) -> Optional[dict]:
     chart_type = spec.get("chart_type")
     x = spec.get("x")
@@ -114,7 +115,12 @@ def _render_chart_html(
     )
 
     # Write a standalone interactive HTML file for blob storage upload
-    filename = f"{_safe_name(dataset_name)}_{idx}_{chart_type}.html"
+    name_parts = [
+        part
+        for part in [filename_prefix, _safe_name(dataset_name), str(idx), chart_type]
+        if part
+    ]
+    filename = f"{'_'.join(name_parts)}.html"
     local_path = tmp_dir / filename
     fig.write_html(str(local_path), include_plotlyjs="cdn")
 
@@ -152,6 +158,7 @@ def build_and_upload_chart_htmls(
     connection_string: str,
     container_name: str,
     blob_prefix: str = "charts/",
+    persona: Optional[str] = None,
 ) -> Tuple[List[str], Dict[str, List[dict]]]:
     """
     Generates interactive HTML charts from the AI chart plan, uploads them to
@@ -168,10 +175,17 @@ def build_and_upload_chart_htmls(
         connection_string: Azure Storage connection string.
         container_name: Blob container to upload charts into (e.g. 'bi-reports').
         blob_prefix: Prefix applied to every blob name inside the container.
+        persona: Optional persona name to include in blob naming (e.g., 'r_and_d', 'project_manager', 'engineer').
 
     Returns:
         Tuple of (local HTML paths, dict mapping insight_title -> list of {title, image_b64, sas_url}).
     """
+    persona_prefix = _safe_name(persona) if persona else None
+
+    # If persona is provided, adjust the blob prefix to include it
+    if persona:
+        blob_prefix = f"charts/{persona_prefix}/"
+    
     blob_service = BlobServiceClient.from_connection_string(connection_string)
     container = blob_service.get_container_client(container_name)
 
@@ -205,6 +219,7 @@ def build_and_upload_chart_htmls(
                     spec=spec,
                     tmp_dir=tmp_dir,
                     idx=idx,
+                    filename_prefix=persona_prefix,
                 )
                 if entry is None:
                     print(f"[WARN] Skipped invalid/unrenderable chart spec: {spec}")
