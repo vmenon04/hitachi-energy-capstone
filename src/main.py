@@ -59,6 +59,7 @@ def main():
                 system_prompt=persona_config.insights_system_prompt,
             )
             insights_text = insights_result["messages"][-1].content if insights_result else ""
+            logger.info("Insights length for persona=%s: %d chars", persona_key, len(insights_text))
 
             if not insights_text:
                 logger.warning("No insights generated for persona=%s; skipping", persona_key)
@@ -70,6 +71,10 @@ def main():
                 insights_text,
                 system_prompt=persona_config.chart_planner_prompt,
             )
+            num_datasets = len(chart_plan.get("datasets", [])) if chart_plan else 0
+            num_charts = sum(len(d.get("charts", [])) for d in chart_plan.get("datasets", [])) if chart_plan else 0
+
+            logger.info("Chart plan for persona=%s: %d datasets, %d charts", persona_key, num_datasets, num_charts,)
 
             logger.info("Building and uploading HTML charts for persona=%s", persona_key)
             chart_paths, chart_images = build_and_upload_chart_htmls(
@@ -79,6 +84,7 @@ def main():
                 container_name=REPORTS_CONTAINER_NAME,
                 persona=persona_key,
             )
+            logger.info("Chart images for persona=%s: %d",persona_key,len(chart_images),)
             logger.info(
                 "Generated %d HTML charts for persona=%s",
                 len(chart_paths),
