@@ -61,7 +61,16 @@ _llm_retry = retry(
     reraise=True,
 )
 
-def generate_insights(data: dict[str, pd.DataFrame]):
+def generate_insights(data: dict[str, pd.DataFrame], system_prompt: str = INSIGHTS_SYSTEM):
+    """
+    Generate insights text using a LangChain agent with access to tools for the provided dataframes.
+
+    Args:
+        data: A dictionary mapping dataset names to pandas DataFrames.
+        system_prompt: The system prompt to use for the agent.
+    Returns:
+        The final agent response containing the insights text.
+    """
     global current_dfs
     current_dfs = data
 
@@ -82,7 +91,7 @@ def generate_insights(data: dict[str, pd.DataFrame]):
     logger.info("Creating agent")
     agent = create_agent(llm, 
                          tools=tools, 
-                         system_prompt=INSIGHTS_SYSTEM, 
+                         system_prompt=system_prompt, 
                          name="basic-agent"
     )
     messages = [HumanMessage(content=INSIGHTS_HUMAN)]
@@ -92,7 +101,17 @@ def generate_insights(data: dict[str, pd.DataFrame]):
     return result
 
 
-def generate_chart_plan(dfs: dict[str, pd.DataFrame], insights_text: str) -> dict:
+def generate_chart_plan(dfs: dict[str, pd.DataFrame], insights_text: str, system_prompt: str = CHART_PLANNER_SYSTEM) -> dict:
+    """
+    Generate a chart plan (dict) using a LangChain agent, based on the provided insights text and dataset metadata.
+
+    Args:
+        dfs: Mapping of dataset name to DataFrame.
+        insights_text: The insights text that the chart plan should align with.
+        system_prompt: The system prompt to use for the agent.
+    Returns:
+        A dict representing the chart plan, which includes datasets, insight titles, and chart specifications.
+    """
     logger = logging.getLogger("hitachi_pipeline")
 
     llm = AzureChatOpenAI(
@@ -110,7 +129,7 @@ def generate_chart_plan(dfs: dict[str, pd.DataFrame], insights_text: str) -> dic
     )
 
     messages = [
-        SystemMessage(content=CHART_PLANNER_SYSTEM),
+        SystemMessage(content=system_prompt),
         HumanMessage(content=human_prompt),
     ]
 

@@ -195,14 +195,38 @@ def send_insights_email(
     connection_string: Optional[str] = None,
     attachment_paths: list[str] | None = None,
     chart_images: dict[str, list[dict]] | None = None,
+    persona: Optional[str] = None,
 ) -> None:
-    """Send an HTML insights email via the ACS Email SDK."""
+    """Send an HTML insights email via the ACS Email SDK.
+    
+    Args:
+        insights_text: The insights text to include in the email.
+        csv_name: The name of the data source.
+        subject: Optional custom subject line. If not provided, a default based on persona is used.
+        recipient: Optional email recipient. Defaults to EMAIL_RECIPIENT env var.
+        sender: Optional sender email. Defaults to EMAIL_FROM_ADDRESS env var.
+        connection_string: Optional ACS connection string. Defaults to ACS_CONNECTION_STRING env var.
+        attachment_paths: Optional list of file paths to attach.
+        chart_images: Optional dict of insight titles to chart image data.
+        persona: Optional persona name (e.g., 'r_and_d', 'project_manager', 'engineer') to customize subject and messaging.
+    """
     conn_str = connection_string or _ACS_CONNECTION_STRING
     from_addr = sender or _EMAIL_SENDER
     to_addr = recipient or _EMAIL_RECIPIENT
-    subject = subject or (
-        f"AI Business Insights Report \u2013 {datetime.now().strftime('%B %d, %Y')}"
-    )
+    
+    # If subject not provided, generate a persona-specific one
+    if subject is None:
+        persona_label = ""
+        if persona == "r_and_d":
+            persona_label = "R&D Report"
+        elif persona == "project_manager":
+            persona_label = "Project Manager Report"
+        elif persona == "engineer":
+            persona_label = "Engineering Report"
+        else:
+            persona_label = "Analysis"
+        
+        subject = f"{persona_label} – {datetime.now().strftime('%B %d, %Y')}"
 
     html_body = build_html_email(insights_text, csv_name=csv_name, chart_images=chart_images)
     plain_body = (

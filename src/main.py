@@ -11,6 +11,7 @@ from agents.agents import generate_insights, generate_chart_plan
 from datafetching.refresh_extraction import sharepoint_to_blob
 from notifications.email_utils import send_insights_email
 from visualizations.html_report import build_and_upload_chart_htmls
+from systemprompts.prompts import PERSONAS
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 load_dotenv(BASE_DIR / ".env")
@@ -26,11 +27,7 @@ EXECUTION_ID = os.getenv("JOB_EXECUTION_ID", str(uuid.uuid4()))
 # Global variable to store the current dataframe for tool access
 current_dfs = {}
 
-
 logger = setup_logger(JOB_NAME, EXECUTION_ID)
-
-
-
 
 def main():
     log_section("HITACHI AI PROJECT TRACKING JOB STARTED")
@@ -51,36 +48,59 @@ def main():
         dfs = download_csv(STORAGE_CONNECTION_STRING, STORAGE_CONTAINER_NAME)
         logger.info("Loaded %d CSV files from Blob Storage", len(dfs))
 
-        log_subsection("STEP 3: GENERATE AI INSIGHTS")
-        insights_result = generate_insights(dfs)
-        insights_text = insights_result["messages"][-1].content if insights_result else ""
+        log_subsection("STEP 3-6: GENERATE PERSONA REPORTS")
+        logger.info("Generating tailored reports for %d personas", len(PERSONAS))
 
-        if insights_text:
-            log_subsection("STEP 4: GENERATE AI CHART PLAN")
-            logger.info("Generating AI chart plan")
-            chart_plan = generate_chart_plan(dfs, insights_text)
+        for persona_key, persona_config in PERSONAS.items():
+            logger.info(f"Starting persona report generation: {persona_config.name} ({persona_key})")
 
-            log_subsection("STEP 5: BUILD AND UPLOAD HTML CHARTS")
-            logger.info("Generating interactive HTML charts and uploading to blob storage")
+            insights_result = generate_insights(
+                dfs,
+                system_prompt=persona_config.insights_system_prompt,
+            )
+            insights_text = insights_result["messages"][-1].content if insights_result else ""
+            logger.info("Insights length for persona=%s: %d chars", persona_key, len(insights_text))
+
+            if not insights_text:
+                logger.warning("No insights generated for persona=%s; skipping", persona_key)
+                continue
+
+            logger.info("Generating chart plan for persona=%s", persona_key)
+            chart_plan = generate_chart_plan(
+                dfs,
+                insights_text,
+                system_prompt=persona_config.chart_planner_prompt,
+            )
+            num_datasets = len(chart_plan.get("datasets", [])) if chart_plan else 0
+            num_charts = sum(len(d.get("charts", [])) for d in chart_plan.get("datasets", [])) if chart_plan else 0
+
+            logger.info("Chart plan for persona=%s: %d datasets, %d charts", persona_key, num_datasets, num_charts,)
+
+            logger.info("Building and uploading HTML charts for persona=%s", persona_key)
             chart_paths, chart_images = build_and_upload_chart_htmls(
                 dfs=dfs,
                 chart_plan=chart_plan,
                 connection_string=STORAGE_CONNECTION_STRING,
                 container_name=REPORTS_CONTAINER_NAME,
+                persona=persona_key,
             )
-            logger.info("Generated %d HTML charts", len(chart_paths))
+            logger.info("Chart images for persona=%s: %d",persona_key,len(chart_images),)
+            logger.info(
+                "Generated %d HTML charts for persona=%s",
+                len(chart_paths),
+                persona_key,
+            )
 
-            log_subsection("STEP 6: SEND EMAIL")
-            logger.info("Sending insights email with chart images and SAS links")
+            logger.info("Sending tailored email for persona=%s", persona_key)
             send_insights_email(
                 insights_text,
                 csv_name="Combined Blob Storage Datasets",
                 chart_images=chart_images,
+                subject=f"{persona_config.name} Insights Report",
+                persona=persona_key,
             )
 
-            log_section("JOB COMPLETED SUCCESSFULLY")
-        else:
-            logger.warning("No insights generated; skipping email send")
+        log_section("JOB COMPLETED SUCCESSFULLY")
 
     except Exception:
         logger.exception("Unhandled exception in job entrypoint")
