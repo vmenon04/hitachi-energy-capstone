@@ -25,7 +25,7 @@ def _safe_name(name: str) -> str:
 
 
 def _normalize_datetime(series: pd.Series) -> pd.Series:
-    return pd.to_datetime(series, errors="coerce")
+    return pd.to_datetime(series, errors="coerce", format="mixed")
 
 
 def _validate_column(df: pd.DataFrame, col: Optional[str]) -> bool:
