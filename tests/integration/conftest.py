@@ -5,8 +5,11 @@ In CI the ``azurite`` service container starts before the job steps, so port
 10000 is already listening when pytest collects tests.  Locally, start Azurite
 with either of:
 
-    docker run -p 10000:10000 mcr.microsoft.com/azure-storage/azurite azurite-blob
-    npx azurite-blob --silent
+    docker run -d -p 10000:10000 mcr.microsoft.com/azure-storage/azurite azurite-blob --skipApiVersionCheck
+    npx azurite-blob --skipApiVersionCheck --silent
+
+The ``--skipApiVersionCheck`` flag is required so that Azurite accepts the API
+version used by the current azure-storage-blob SDK without rejecting it.
 
 If Azurite is not reachable after a short retry window, every test that
 depends on ``azurite_container`` is automatically skipped (no test failures).
@@ -18,6 +21,7 @@ import uuid
 
 import pytest
 from azure.storage.blob import BlobServiceClient
+from azure.storage.blob._shared.policies import ExponentialRetry
 
 # ---------------------------------------------------------------------------
 # Well-known Azurite development connection string (not a real secret).
@@ -51,17 +55,34 @@ def azurite_client():
         try:
             sock = socket.create_connection((_AZURITE_HOST, _AZURITE_PORT), timeout=1)
             sock.close()
-            return BlobServiceClient.from_connection_string(AZURITE_CONN_STR)
+            break
         except OSError:
             if attempt < _STARTUP_RETRIES - 1:
                 time.sleep(_RETRY_INTERVAL)
+    else:
+        pytest.skip(
+            f"Azurite Blob Service is not available on {_AZURITE_HOST}:{_AZURITE_PORT}. "
+            "Start it locally with:\n"
+            "  docker run -d -p 10000:10000 "
+            "mcr.microsoft.com/azure-storage/azurite azurite-blob --skipApiVersionCheck"
+        )
 
-    pytest.skip(
-        f"Azurite Blob Service is not available on {_AZURITE_HOST}:{_AZURITE_PORT}. "
-        "Start it locally with:\n"
-        "  docker run -p 10000:10000 "
-        "mcr.microsoft.com/azure-storage/azurite azurite-blob"
+    # Use a no-retry policy so an API version mismatch fails fast (skip) instead
+    # of hanging for 20+ seconds while the SDK retries with exponential backoff.
+    client = BlobServiceClient.from_connection_string(
+        AZURITE_CONN_STR,
+        retry_policy=ExponentialRetry(initial_backoff=0, increment_base=0, retry_total=0),
     )
+    try:
+        next(iter(client.list_containers()), None)
+    except Exception as exc:
+        pytest.skip(
+            f"Azurite is reachable but rejected the request: {exc}\n"
+            "Ensure Azurite is started with --skipApiVersionCheck:\n"
+            "  docker run -d -p 10000:10000 "
+            "mcr.microsoft.com/azure-storage/azurite azurite-blob --skipApiVersionCheck"
+        )
+    return client
 
 
 @pytest.fixture
