@@ -294,7 +294,7 @@ def test_send_insights_email_uses_defaults_and_attaches_files(monkeypatch, tmp_p
     assert message["senderAddress"] == "defaultsender@example.com"
     assert message["recipients"]["to"][0]["address"] == "defaultrecipient@example.com"
     assert message["content"]["html"] == "<html>body</html>"
-    assert message["content"]["subject"].startswith("AI Business Insights Report")
+    assert message["content"]["subject"].startswith("Analysis")
     assert "Plain insight text" in message["content"]["plainText"]
     assert message["attachments"][0]["name"] == "chart.html"
     assert message["attachments"][0]["contentType"] == "text/html"
