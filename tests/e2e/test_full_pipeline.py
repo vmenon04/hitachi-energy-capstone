@@ -128,7 +128,7 @@ class TestPipelineHappyPath:
         ):
             pipeline.main()
 
-        assert mock_email.call_count == 3
+        assert mock_email.call_count == 4
 
     def test_download_csv_is_called(self, monkeypatch):
         monkeypatch.delenv("SHAREPOINT_CLIENT_ID", raising=False)
@@ -156,7 +156,7 @@ class TestPipelineHappyPath:
         ):
             pipeline.main()
 
-        assert mock_ins.call_count == 3
+        assert mock_ins.call_count == 4
         for c in mock_ins.call_args_list:
             assert c.args[0] is FAKE_DFS
 
@@ -172,7 +172,7 @@ class TestPipelineHappyPath:
         ):
             pipeline.main()
 
-        assert mock_cp.call_count == 3
+        assert mock_cp.call_count == 4
         for c in mock_cp.call_args_list:
             assert c.args[1] == FAKE_INSIGHTS
 
@@ -188,7 +188,7 @@ class TestPipelineHappyPath:
         ):
             pipeline.main()
 
-        assert mock_bc.call_count == 3
+        assert mock_bc.call_count == 4
         for c in mock_bc.call_args_list:
             assert c.kwargs["chart_plan"] == FAKE_CHART_PLAN
 
@@ -204,7 +204,7 @@ class TestPipelineHappyPath:
         ):
             pipeline.main()
 
-        assert mock_email.call_count == 3
+        assert mock_email.call_count == 4
         for c in mock_email.call_args_list:
             assert c.kwargs["chart_images"] == FAKE_CHART_IMAGES
 
@@ -221,9 +221,9 @@ class TestPipelineHappyPath:
         ):
             pipeline.main()
 
-        assert mock_ins.call_count == 3
+        assert mock_ins.call_count == 4
         system_prompts = [c.kwargs["system_prompt"] for c in mock_ins.call_args_list]
-        assert len(set(system_prompts)) == 3, "Each persona must use a distinct system prompt"
+        assert len(set(system_prompts)) == 4, "Each persona must use a distinct system prompt"
 
 
 class TestSharePointStep:
@@ -358,6 +358,6 @@ class TestPipelineEdgeCases:
             "build_and_upload_chart_htmls",
             "send_insights_email",
         ]
-        assert len(persona_steps) == len(expected_group) * 3
-        for i in range(3):
+        assert len(persona_steps) == len(expected_group) * 4
+        for i in range(4):
             assert persona_steps[i * 4 : (i + 1) * 4] == expected_group
