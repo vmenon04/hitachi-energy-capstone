@@ -1,5 +1,4 @@
 from dataclasses import dataclass
-from typing import Optional
 
 @dataclass
 class PersonaConfig:
@@ -1064,10 +1063,10 @@ PERSONAS = {
         description="Focused on technical execution, engineering workflow, design readiness, and implementation constraints",
     ),
     "operations": PersonaConfig(
-    name="Operations",
-    insights_system_prompt=INSIGHTS_OPERATIONS,
-    chart_planner_prompt=CHART_PLANNER_OPERATIONS,
-    email_recipient_notes="Operations and execution teams",
-    description="Focused on workflow execution, coordination across teams, and operational bottlenecks",
-),
+        name="Operations",
+        insights_system_prompt=INSIGHTS_OPERATIONS,
+        chart_planner_prompt=CHART_PLANNER_OPERATIONS,
+        email_recipient_notes="Operations and execution teams",
+        description="Focused on workflow execution, coordination across teams, and operational bottlenecks",
+    ),
 }
