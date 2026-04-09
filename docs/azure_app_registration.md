@@ -28,7 +28,7 @@ accounts (production).
 ### Work/school account
 1. Go to **API permissions → Add a permission → Microsoft Graph → Application permissions**
 2. Add `Files.Read.All` (or `Sites.Read.All` if accessing SharePoint document libraries)
-3. Click **Grant admin consent** — required for application permissions to take effect
+3. Click **Grant admin consent** (required for application permissions to take effect)
 
 ## 3. Create a Client Secret (work accounts only)
 
@@ -44,7 +44,10 @@ Use [Graph Explorer](https://developer.microsoft.com/graph/graph-explorer) signe
 ```
 GET https://graph.microsoft.com/v1.0/me/drives
 ```
+
 Copy the `id` of the drive → `SHAREPOINT_DRIVE_ID`.
+
+> If an `Unauthorized` error appears, navigate to Modify Permissions and consent to all.
 
 To find a folder inside the drive:
 ```
