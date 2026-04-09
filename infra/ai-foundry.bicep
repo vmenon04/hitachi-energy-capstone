@@ -24,12 +24,12 @@ resource aiResource 'Microsoft.CognitiveServices/accounts@2025-06-01' = {
 // deploy the model
 resource gptDeployment 'Microsoft.CognitiveServices/accounts/deployments@2025-06-01' = {
   parent: aiResource
-  name: 'gpt-5.4-mini'
+  name: 'gpt-4o-mini'
   properties: {
     model: {
       format: 'OpenAI'
-      name: 'gpt-5.4-mini'
-      version: '2026-03-17'
+      name: 'gpt-4o-mini'
+      version: '2024-07-18'
     }
   }
   sku: {
