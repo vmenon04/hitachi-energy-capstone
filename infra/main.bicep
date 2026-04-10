@@ -62,6 +62,7 @@ resource commServiceRef 'Microsoft.Communication/communicationServices@2023-04-0
 
 module kvModule 'keyvault.bicep' = {
   name: 'keyvault-deployment'
+  dependsOn: [commModule]
   params: {
     location: location
     keyVaultName: 'kv${uniqueSuffix}'
