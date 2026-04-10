@@ -33,7 +33,7 @@ resource gptDeployment 'Microsoft.CognitiveServices/accounts/deployments@2025-06
     }
   }
   sku: {
-    name: 'GlobalStandard'
+    name: 'Standard'
     capacity: 100
   }
 }
