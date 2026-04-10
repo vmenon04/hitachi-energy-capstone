@@ -33,7 +33,7 @@ load_dotenv(BASE_DIR / ".env")
 AI_ENDPOINT = os.environ["AZURE_AI_PROJECT_ENDPOINT"]
 AI_API_KEY = os.environ["AZURE_AI_PROJECT_API_KEY"]
 
-MODEL = "gpt-4o-mini"
+MODEL = "gpt-4o"
 
 def _wait_retry_after_or_exponential(retry_state):
     """Use the Retry-After header value from the 429 response if present;
