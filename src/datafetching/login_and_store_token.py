@@ -34,6 +34,7 @@ AUTHORITY = "https://login.microsoftonline.com/consumers"
 SCOPES = ["https://graph.microsoft.com/Files.Read.All"]
 SECRET_NAME = "sharepoint-token-cache"
 
+logging.basicConfig(level=logging.INFO, format="%(message)s")
 logger = logging.getLogger("azure-login")
 
 def main():
