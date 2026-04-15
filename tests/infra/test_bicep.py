@@ -479,6 +479,6 @@ class TestBicepIntegration:
             "for both ACR image pull and Key Vault secret references"
         )
         assert "SystemAssigned" not in content, (
-            "container.bicep should not use SystemAssigned identity — "
+            "container.bicep should not use SystemAssigned identity -- "
             "ACR pulls now use the UAMI to avoid RBAC propagation races"
         )

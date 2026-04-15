@@ -34,7 +34,7 @@ accounts (production).
 
 1. Go to **Certificates & secrets → New client secret**
 2. Set an expiry and click **Add**
-3. Copy the **Value** immediately — it is only shown once
+3. Copy the **Value** immediately -- it is only shown once
 4. Store it as the GitHub Actions secret `SHAREPOINT_CLIENT_SECRET` and in Key Vault as `sharepoint-client-secret`
 
 ## 4. Find the Drive and Folder IDs

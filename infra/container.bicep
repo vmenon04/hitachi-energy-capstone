@@ -161,7 +161,7 @@ resource containerAppJob 'Microsoft.App/jobs@2024-03-01' = if (deployContainerJo
               { name: 'AZURE_KEYVAULT_URI',             value: keyVaultUri }
               { name: 'AZURE_CLIENT_ID',                value: managedIdentityClientId }
             ],
-            // Base SharePoint config — injected for both personal and work account modes
+            // Base SharePoint config -- injected for both personal and work account modes
             sharepointEnabled ? [
               { name: 'SHAREPOINT_CLIENT_ID',            value: sharepointClientId }
               { name: 'SHAREPOINT_DRIVE_ID',             value: sharepointDriveId }

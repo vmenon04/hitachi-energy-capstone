@@ -19,9 +19,9 @@ the User-Assigned Managed Identity used by the Container App Job for both ACR
 image pull and Key Vault secret access.
 
 **Key parameters (all have defaults; SharePoint params are optional):**
-- `deployContainerJob` — set `false` for infra-only deploys, `true` when the image exists
-- `sharepointClientId`, `sharepointDriveId` — enables SharePoint ingestion when set
-- `sharepointTenantId`, `sharepointClientSecret` — additionally enables work-account mode
+- `deployContainerJob` -- set `false` for infra-only deploys, `true` when the image exists
+- `sharepointClientId`, `sharepointDriveId` -- enables SharePoint ingestion when set
+- `sharepointTenantId`, `sharepointClientSecret` -- additionally enables work-account mode
 
 **Key outputs:**
 - `aiResourceName`, `storageName`, `acrLoginServer`, `keyVaultName`, `managedIdentityPrincipalId`
@@ -31,8 +31,8 @@ Provisions Azure Storage Account with blob services configured for big data work
 
 **Resources:**
 - Storage Account (StorageV2, Standard_LRS, HNS enabled)
-- `bi-data` container — input CSVs/Excel files
-- `bi-reports` container — generated PDF reports
+- `bi-data` container -- input CSVs/Excel files
+- `bi-reports` container -- generated PDF reports
 
 ### `ai-foundry.bicep`
 Deploys Azure AI Foundry resources with a GPT model deployment.

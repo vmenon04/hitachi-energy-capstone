@@ -37,7 +37,7 @@ az login
 # 2. Copy .env.example to .env and fill in SHAREPOINT_CLIENT_ID and AZURE_KEYVAULT_URI
 cp .env.example .env
 
-# 3. Run the interactive login script (follows device code flow — opens a browser)
+# 3. Run the interactive login script (follows device code flow -- opens a browser)
 python src/datafetching/login_and_store_token.py
 ```
 
@@ -76,7 +76,7 @@ Set these in `.env` locally and as GitHub Actions secrets for cloud deployment.
 | `AZURE_CLIENT_ID` | Client ID of the User-Assigned Managed Identity | Cloud deployment |
 
 `AZURE_KEYVAULT_URI` and `AZURE_CLIENT_ID` are injected automatically by the Bicep
-template — you do not need to set them manually in GitHub Actions.
+template -- you do not need to set them manually in GitHub Actions.
 
 ---
 
@@ -134,7 +134,7 @@ Uploaded Project_Data/inventory.xlsx to bi-data
 SharePoint ingestion is enabled at deploy time by passing non-empty values for
 `sharepointClientId` and `sharepointDriveId` to the Bicep parameter file or as
 `--parameters` overrides in `deploy.yml`. When these are empty (the default), the
-Container App Job is deployed without any SharePoint-related secrets or env vars —
+Container App Job is deployed without any SharePoint-related secrets or env vars --
 so infra-only deploys never fail due to missing SharePoint configuration.
 
 The GitHub Actions workflow reads the following secrets:

@@ -121,10 +121,10 @@ def _graph_base(drive_id: str) -> str:
     """
     Returns the correct Graph API base path for listing/downloading items.
 
-    Work accounts (client credentials): /drives/{drive_id} — drive ID is required
+    Work accounts (client credentials): /drives/{drive_id} -- drive ID is required
     and the /drives/ path works correctly against SharePoint document libraries.
 
-    Personal accounts (token cache): /me/drive — the /drives/{id}/items/...
+    Personal accounts (token cache): /me/drive -- the /drives/{id}/items/...
     path raises "ObjectHandle is Invalid" (400) for personal OneDrive; the
     /me/drive/... variant is the only supported form for delegated personal tokens.
     """

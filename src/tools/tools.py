@@ -8,7 +8,7 @@ def _truncate(text: str) -> str:
     """Cap tool output to avoid flooding the model context with large dataframe dumps."""
     if len(text) <= _MAX_TOOL_OUTPUT_CHARS:
         return text
-    return text[:_MAX_TOOL_OUTPUT_CHARS] + f"\n... [truncated — {len(text) - _MAX_TOOL_OUTPUT_CHARS} chars omitted]"
+    return text[:_MAX_TOOL_OUTPUT_CHARS] + f"\n... [truncated -- {len(text) - _MAX_TOOL_OUTPUT_CHARS} chars omitted]"
 
 
 def get_tools(dfs: dict):
@@ -123,7 +123,7 @@ def get_tools(dfs: dict):
     def filter_rows(filename: str, column_name: str, operator: str, value: str, max_rows: int = 20) -> str:
         """Filter rows in a dataset and return matching records.
 
-        Use this to drill into specific subsets — e.g. overdue tasks, open issues,
+        Use this to drill into specific subsets -- e.g. overdue tasks, open issues,
         high-severity risks, blocked resources.
 
         Args:
@@ -172,7 +172,7 @@ def get_tools(dfs: dict):
     def get_top_n(filename: str, sort_column: str, n: int = 10, ascending: bool = False) -> str:
         """Return the top N rows sorted by a numeric column.
 
-        Use this to identify the worst offenders — e.g. tasks with the most slip days,
+        Use this to identify the worst offenders -- e.g. tasks with the most slip days,
         issues with the highest impact, resources with the most allocated hours.
 
         Args:

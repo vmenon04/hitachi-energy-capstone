@@ -201,7 +201,7 @@ For personal accounts, the SharePoint/OneDrive integration uses device-code auth
    az login
    python src/datafetching/login_and_store_token.py
    ```
-   This opens a browser for device-code auth, then stores the MSAL token cache in Key Vault (secret: `sharepoint-token-cache`). The refresh token is valid for ~90 days — re-run this script if it expires.
+   This opens a browser for device-code auth, then stores the MSAL token cache in Key Vault (secret: `sharepoint-token-cache`). The refresh token is valid for ~90 days -- re-run this script if it expires.
 
 ---
 
@@ -285,7 +285,7 @@ Use this checklist to make sure nothing is missed:
 
 - [ ] New Azure account created and subscription active
 - [ ] Resource group `Hitachi-RG` created in `East US`
-- [ ] *(Optional)* Resource providers pre-registered — auto-registered by Bicep on first deploy; only needed if deployment fails with `MissingSubscriptionRegistration`
+- [ ] *(Optional)* Resource providers pre-registered -- auto-registered by Bicep on first deploy; only needed if deployment fails with `MissingSubscriptionRegistration`
 - [ ] Service principal created with **Contributor** + **User Access Administrator** on the resource group
 - [ ] `AZURE_CREDENTIALS` GitHub secret updated with new service principal JSON
 - [ ] New Entra ID app registration created (personal account type)
@@ -329,7 +329,7 @@ Ensure your service principal has both **Contributor** and **User Access Adminis
 Assign yourself the **Key Vault Secrets Officer** role (step 9.3) and ensure you've run `az login`.
 
 ### Token cache expired (SharePoint stops syncing)
-Re-run `python src/datafetching/login_and_store_token.py` — the refresh token expires after ~90 days of inactivity.
+Re-run `python src/datafetching/login_and_store_token.py` -- the refresh token expires after ~90 days of inactivity.
 
 ### AI model deployment fails
 Azure AI Services (`eastus2`) may have capacity constraints. If `gpt-5.4-mini` fails to deploy, check regional availability in the Azure Portal under **AI Services → Model deployments**.
