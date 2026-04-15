@@ -88,7 +88,7 @@ module containerModule 'container.bicep' = {
     managedIdentityPrincipalId: managedIdentity.properties.principalId
     managedIdentityClientId: managedIdentity.properties.clientId
     keyVaultUri: kvModule.outputs.keyVaultUri
-    emailRecipient: 'hitachiseniordesign@outlook.com'
+    emailRecipient: 'hitachienergy2@outlook.com'
     sharepointEnabled: sharepointEnabled
     sharepointWorkEnabled: sharepointWorkEnabled
     sharepointClientId: sharepointClientId

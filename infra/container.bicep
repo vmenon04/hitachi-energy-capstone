@@ -19,7 +19,7 @@ param managedIdentityId string
 param managedIdentityPrincipalId string
 param managedIdentityClientId string
 param keyVaultUri string
-param emailRecipient string = 'hitachiseniordesign@outlook.com'
+param emailRecipient string = 'hitachienergy2@outlook.com'
 // sharepointEnabled: any SharePoint mode (personal or work) is active
 param sharepointEnabled bool = false
 // sharepointWorkEnabled: work-account mode - adds the KV client-secret reference
