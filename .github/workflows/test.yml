@@ -1,13 +1,13 @@
 # Runs unit tests on feature branch pushes and PRs.
-# The full test suite is handled exclusively by deploy.yml on development, main, and infrastructure.
+# The full test suite is handled exclusively by deploy.yml on main and infrastructure.
 
 name: Run Unit Tests
  
 on:
   push:
-    branches-ignore: [development, main, infrastructure]
+    branches-ignore: [main, infrastructure]
   pull_request:
-    branches: [development, main]
+    branches: [main]
 
 permissions:
   contents: read

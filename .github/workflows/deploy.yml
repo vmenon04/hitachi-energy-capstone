@@ -5,7 +5,7 @@ name: Deploy to Azure
 on:
   workflow_dispatch:
   push:
-    branches: [infrastructure, development, main]
+    branches: [infrastructure, main]
     paths:
       - 'infra/**'
       - 'src/**'
@@ -14,7 +14,7 @@ on:
       - 'tests/**'
       - '.github/workflows/deploy.yml'
   pull_request:
-    branches: [development, main]
+    branches: [main]
     paths:
       - 'infra/**'
       - 'src/**'
@@ -99,11 +99,11 @@ jobs:
             exit 0
           fi
 
-          # Pushes to development or main are typically merge commits whose
+          # Pushes to main are typically merge commits whose
           # diff (HEAD~1..HEAD) only reflects the merge commit itself, not the
           # files changed in the merged branch. Always deploy everything here.
           BRANCH="${{ github.ref_name }}"
-          if [ "$BRANCH" = "development" ] || [ "$BRANCH" = "main" ]; then
+          if [ "$BRANCH" = "main" ]; then
             echo "infra-changed=true" >> "$GITHUB_OUTPUT"
             echo "app-changed=true" >> "$GITHUB_OUTPUT"
             exit 0
