@@ -1,0 +1,265 @@
+# This workflow validates and deploys infrastructure and application changes to Azure.
+
+name: Deploy to Azure
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [infrastructure, main]
+    paths:
+      - 'infra/**'
+      - 'src/**'
+      - 'Dockerfile'
+      - 'requirements.txt'
+      - 'tests/**'
+      - '.github/workflows/deploy.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'infra/**'
+      - 'src/**'
+      - 'Dockerfile'
+      - 'requirements.txt'
+      - 'tests/**'
+      - '.github/workflows/deploy.yml'
+
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+env:
+  RESOURCE_GROUP: Hitachi-RG
+  LOCATION: eastus
+  AI_LOCATION: eastus2
+  AZURE_SUBSCRIPTION_ID: ${{ fromJSON(secrets.AZURE_CREDENTIALS).subscriptionId }}
+
+jobs:
+  test:
+    name: Run All Tests (before deployment)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v5
+ 
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+ 
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+ 
+      - name: Install Bicep
+        run: az bicep install
+
+      - name: Start Azurite blob service
+        run: |
+          npm install -g azurite
+          mkdir -p /tmp/azurite
+          azurite-blob \
+            --location /tmp/azurite \
+            --skipApiVersionCheck \
+            --blobHost 0.0.0.0 \
+            --silent &
+          # Wait up to 15 s for the blob service to be ready
+          for i in $(seq 15); do
+            nc -z 127.0.0.1 10000 && echo "Azurite ready" && break
+            sleep 1
+          done
+ 
+      - name: Run all tests
+        run: pytest tests/ -v --tb=short
+
+      - name: Build Docker image (validation only)
+        run: docker build -t hitachi-app:pr-${{ github.sha }} .
+
+  check-paths:
+    name: Detect Changed Paths
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    outputs:
+      infra-changed: ${{ steps.check.outputs.infra-changed }}
+      app-changed: ${{ steps.check.outputs.app-changed }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 2
+      
+      - name: Check changed paths
+        id: check
+        run: |
+          # workflow_dispatch: always run everything
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "infra-changed=true" >> "$GITHUB_OUTPUT"
+            echo "app-changed=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # Pushes to main are typically merge commits whose
+          # diff (HEAD~1..HEAD) only reflects the merge commit itself, not the
+          # files changed in the merged branch. Always deploy everything here.
+          BRANCH="${{ github.ref_name }}"
+          if [ "$BRANCH" = "main" ]; then
+            echo "infra-changed=true" >> "$GITHUB_OUTPUT"
+            echo "app-changed=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # For other branches (e.g. infrastructure), use the git diff to
+          # deploy only what actually changed.
+          CHANGED=$(git diff --name-only HEAD~1 HEAD)
+
+          if echo "$CHANGED" | grep -qE '^(infra/|.github/workflows/deploy.yml)'; then
+            echo "infra-changed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "infra-changed=false" >> "$GITHUB_OUTPUT"
+          fi
+
+          if echo "$CHANGED" | grep -qE '^(src/|Dockerfile|requirements.txt|.github/workflows/deploy.yml)'; then
+            echo "app-changed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "app-changed=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  deploy-infra:
+    name: Deploy Infrastructure
+    needs: [check-paths, test]
+    if: needs.check-paths.outputs.infra-changed == 'true'
+    runs-on: ubuntu-latest
+    outputs:
+      managedIdentityPrincipalId: ${{ steps.deploy.outputs.managedIdentityPrincipalId }}
+    steps:
+      - uses: actions/checkout@v5
+      
+      - name: Azure Login
+        uses: azure/login@v3
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: What-If Preview
+        run: |
+          az deployment group what-if \
+            --resource-group ${{ env.RESOURCE_GROUP }} \
+            --template-file infra/main.bicep \
+            --parameters \
+              location=${{ env.LOCATION }} \
+              aiLocation=${{ env.AI_LOCATION }} \
+              deployContainerJob=false \
+              sharepointClientId=${{ secrets.SHAREPOINT_CLIENT_ID }} \
+              sharepointTenantId=${{ secrets.SHAREPOINT_TENANT_ID }} \
+              sharepointDriveId=${{ secrets.SHAREPOINT_DRIVE_ID }} \
+              sharepointClientSecret=${{ secrets.SHAREPOINT_CLIENT_SECRET }}
+
+      - name: Deploy Core Infrastructure
+        id: deploy
+        uses: azure/bicep-deploy@v2
+        with:
+          name: core-infra-deployment
+          type: deployment
+          operation: create
+          scope: resourceGroup
+          subscription-id: ${{ env.AZURE_SUBSCRIPTION_ID }}
+          resource-group-name: ${{ env.RESOURCE_GROUP }}
+          template-file: ./infra/main.bicep
+          parameters: |
+            location: ${{ env.LOCATION }}
+            aiLocation: ${{ env.AI_LOCATION }}
+            deployContainerJob: false
+            sharepointClientId: ${{ secrets.SHAREPOINT_CLIENT_ID }}
+            sharepointTenantId: ${{ secrets.SHAREPOINT_TENANT_ID }}
+            sharepointDriveId: ${{ secrets.SHAREPOINT_DRIVE_ID }}
+            sharepointClientSecret: ${{ secrets.SHAREPOINT_CLIENT_SECRET }}
+
+
+      - name: Assign Key Vault Secrets User role
+        run: |
+          KV_NAME=$(az keyvault list \
+            --resource-group ${{ env.RESOURCE_GROUP }} \
+            --query "[0].name" -o tsv)
+          MI_PRINCIPAL_ID="${{ steps.deploy.outputs.managedIdentityPrincipalId }}"
+          az role assignment create \
+            --role "Key Vault Secrets Officer" \
+            --assignee-object-id "$MI_PRINCIPAL_ID" \
+            --assignee-principal-type ServicePrincipal \
+            --scope "/subscriptions/${{ fromJson(secrets.AZURE_CREDENTIALS).subscriptionId }}/resourceGroups/${{ env.RESOURCE_GROUP }}/providers/Microsoft.KeyVault/vaults/$KV_NAME"
+
+  deploy-app:
+    name: Deploy Application
+    needs: [check-paths, deploy-infra, test]
+    # Run if app changed, and either infra isn't modified or deployed successfully
+    # So only run if infra is in a "good" state
+    if: |
+      needs.check-paths.outputs.app-changed == 'true' &&
+      (
+        needs.check-paths.outputs.infra-changed == 'false' ||
+        needs.deploy-infra.result == 'success'
+      )
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Azure Login
+        uses: azure/login@v3
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Resolve ACR login server
+        id: acr
+        run: |
+          LOGIN_SERVER=$(az acr list \
+            --resource-group "${{ env.RESOURCE_GROUP }}" \
+            --query "[0].loginServer" \
+            -o tsv 2>/dev/null || true)
+
+          if [ -z "$LOGIN_SERVER" ]; then
+            LOGIN_SERVER=$(az deployment group list \
+              --resource-group "${{ env.RESOURCE_GROUP }}" \
+              --query "[?properties.outputs.acrLoginServer.value!=null] | sort_by(@, &properties.timestamp)[-1].properties.outputs.acrLoginServer.value" \
+              -o tsv 2>/dev/null || true)
+          fi
+
+          ACR_NAME="${LOGIN_SERVER%%.azurecr.io}"
+
+          if [ -z "$LOGIN_SERVER" ] || [ -z "$ACR_NAME" ]; then
+            echo "Unable to resolve ACR login server." >&2
+            echo "Ensure infrastructure has been deployed to resource group ${{ env.RESOURCE_GROUP }} first." >&2
+            exit 1
+          fi
+
+          echo "login_server=$LOGIN_SERVER" >> "$GITHUB_OUTPUT"
+          echo "acr_name=$ACR_NAME" >> "$GITHUB_OUTPUT"
+
+      - name: ACR Login
+        run: az acr login --name "${{ steps.acr.outputs.acr_name }}"
+
+      - name: Build and push image
+        run: |
+          IMAGE="${{ steps.acr.outputs.login_server }}/hitachi-app:${{ github.sha }}"
+          docker build -t "$IMAGE" .
+          docker push "$IMAGE"
+          docker tag "$IMAGE" "${{ steps.acr.outputs.login_server }}/hitachi-app:latest"
+          docker push "${{ steps.acr.outputs.login_server }}/hitachi-app:latest"
+
+      - name: Deploy Container App Job
+        uses: azure/bicep-deploy@v2
+        with:
+          name: container-job-${{ github.run_id }}
+          type: deployment
+          operation: create
+          scope: resourceGroup
+          subscription-id: ${{ env.AZURE_SUBSCRIPTION_ID }}
+          resource-group-name: ${{ env.RESOURCE_GROUP }}
+          template-file: ./infra/main.bicep
+          parameters: |
+            location: ${{ env.LOCATION }}
+            aiLocation: ${{ env.AI_LOCATION }}
+            deployContainerJob: true
+            jobImage: ${{ steps.acr.outputs.login_server }}/hitachi-app:${{ github.sha }}
+            sharepointClientId: ${{ secrets.SHAREPOINT_CLIENT_ID }}
+            sharepointTenantId: ${{ secrets.SHAREPOINT_TENANT_ID }}
+            sharepointDriveId: ${{ secrets.SHAREPOINT_DRIVE_ID }}
+            sharepointClientSecret: ${{ secrets.SHAREPOINT_CLIENT_SECRET }}

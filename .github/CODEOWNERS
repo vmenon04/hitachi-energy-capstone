@@ -1,0 +1,9 @@
+# Global owners - everyone reviews everything
+* @arrao3_ncstate @ksalle_ncstate @ndesu_ncstate @sgadire_ncstate @vmenon2_ncstate
+
+# Infrastructure
+/infra/ @vmenon2_ncstate @ksalle_ncstate
+/tests/infra/ @vmenon2_ncstate @ksalle_ncstate
+
+# Testing
+/tests/unit/ @ndesu_ncstate @sgadire_ncstate
