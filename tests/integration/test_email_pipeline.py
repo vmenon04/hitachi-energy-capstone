@@ -105,7 +105,7 @@ class TestSendInsightsEmail:
                 SAMPLE_INSIGHTS,
                 "projects.csv",
                 subject="Integration Test Report",
-                recipient="pm@example.com",
+                recipients=["pm@example.com", "stakeholders@example.com"],
                 sender="noreply@example.com",
                 connection_string="Endpoint=sb://fake;SharedAccessKeyName=x;SharedAccessKey=y",
                 attachment_paths=[],
@@ -116,7 +116,10 @@ class TestSendInsightsEmail:
         sent_msg = mock_acs.from_connection_string.return_value.begin_send.call_args[0][0]
 
         assert sent_msg["senderAddress"] == "noreply@example.com"
-        assert sent_msg["recipients"]["to"][0]["address"] == "pm@example.com"
+        assert [recipient["address"] for recipient in sent_msg["recipients"]["to"]] == [
+            "pm@example.com",
+            "stakeholders@example.com",
+        ]
         assert "Integration Test Report" in sent_msg["content"]["subject"]
         assert "Resource Allocation Risk" in sent_msg["content"]["html"]
 
@@ -128,7 +131,7 @@ class TestSendInsightsEmail:
                 SAMPLE_INSIGHTS,
                 "projects.csv",
                 subject="Chart Image Test",
-                recipient="pm@example.com",
+                recipients=["pm@example.com", "stakeholders@example.com"],
                 sender="noreply@example.com",
                 connection_string="Endpoint=sb://fake;SharedAccessKeyName=x;SharedAccessKey=y",
                 attachment_paths=[],
@@ -149,7 +152,7 @@ class TestSendInsightsEmail:
                 SAMPLE_INSIGHTS,
                 "projects.csv",
                 subject="Consistency Test",
-                recipient="pm@example.com",
+                recipients=["pm@example.com", "stakeholders@example.com"],
                 sender="noreply@example.com",
                 connection_string="Endpoint=sb://fake;SharedAccessKeyName=x;SharedAccessKey=y",
                 attachment_paths=[],
@@ -172,7 +175,7 @@ class TestSendInsightsEmail:
             send_insights_email(
                 SAMPLE_INSIGHTS,
                 "projects.csv",
-                recipient="pm@example.com",
+                recipients=["pm@example.com", "stakeholders@example.com"],
                 sender="noreply@example.com",
                 connection_string="Endpoint=sb://fake;SharedAccessKeyName=x;SharedAccessKey=y",
                 chart_images=SAMPLE_CHART_IMAGES,

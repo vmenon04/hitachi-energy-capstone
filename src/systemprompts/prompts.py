@@ -2,12 +2,13 @@ from dataclasses import dataclass
 
 @dataclass
 class PersonaConfig:
-    """Configuration for a report persona."""
-    name: str
-    insights_system_prompt: str
-    chart_planner_prompt: str
-    email_recipient_notes: str
-    description: str
+   """Configuration for a report persona."""
+   name: str
+   insights_system_prompt: str
+   chart_planner_prompt: str
+   email_recipients: list[str]
+   email_recipient_notes: str
+   description: str
 
 
 INSIGHTS_SYSTEM = """
@@ -1041,32 +1042,46 @@ Expected JSON format:
 # ============================================================================
 
 PERSONAS = {
-    "r_and_d": PersonaConfig(
-        name="R&D",
-        insights_system_prompt=INSIGHTS_R_AND_D,
-        chart_planner_prompt=CHART_PLANNER_R_AND_D,
-        email_recipient_notes="Research and Development teams",
-        description="Focused on discovering patterns, novel relationships, and generating research hypotheses",
-    ),
-    "project_manager": PersonaConfig(
-        name="Project Manager",
-        insights_system_prompt=INSIGHTS_PM,
-        chart_planner_prompt=CHART_PLANNER_PM,
-        email_recipient_notes="Project managers and project stakeholders",
-        description="Focused on risks, blockers, schedule impacts, and decision-making for project execution",
-    ),
-    "engineer": PersonaConfig(
-        name="Engineer",
-        insights_system_prompt=INSIGHTS_ENGINEER,
-        chart_planner_prompt=CHART_PLANNER_ENGINEER,
-        email_recipient_notes="Engineering and technical teams",
-        description="Focused on technical execution, engineering workflow, design readiness, and implementation constraints",
-    ),
-    "operations": PersonaConfig(
-        name="Operations",
-        insights_system_prompt=INSIGHTS_OPERATIONS,
-        chart_planner_prompt=CHART_PLANNER_OPERATIONS,
-        email_recipient_notes="Operations and execution teams",
-        description="Focused on workflow execution, coordination across teams, and operational bottlenecks",
-    ),
+   "r_and_d": PersonaConfig(
+      name="R&D",
+      insights_system_prompt=INSIGHTS_R_AND_D,
+      chart_planner_prompt=CHART_PLANNER_R_AND_D,
+      email_recipients=[
+         "hitachiseniordesign@outlook.com",
+         "hitachienergy2@outlook.com",
+      ],
+      email_recipient_notes="Research and Development teams",
+      description="Focused on discovering patterns, novel relationships, and generating research hypotheses",
+   ),
+   "project_manager": PersonaConfig(
+      name="Project Manager",
+      insights_system_prompt=INSIGHTS_PM,
+      chart_planner_prompt=CHART_PLANNER_PM,
+      email_recipients=[
+         "hitachiseniordesign@outlook.com"
+      ],
+      email_recipient_notes="Project managers and project stakeholders",
+      description="Focused on risks, blockers, schedule impacts, and decision-making for project execution",
+   ),
+   "engineer": PersonaConfig(
+      name="Engineer",
+      insights_system_prompt=INSIGHTS_ENGINEER,
+      chart_planner_prompt=CHART_PLANNER_ENGINEER,
+      email_recipients=[
+         "hitachienergy2@outlook.com"
+      ],
+      email_recipient_notes="Engineering and technical teams",
+      description="Focused on technical execution, engineering workflow, design readiness, and implementation constraints",
+   ),
+   "operations": PersonaConfig(
+      name="Operations",
+      insights_system_prompt=INSIGHTS_OPERATIONS,
+      chart_planner_prompt=CHART_PLANNER_OPERATIONS,
+      email_recipients=[
+         "hitachiseniordesign@outlook.com",
+         "hitachienergy2@outlook.com",
+      ],
+      email_recipient_notes="Operations and execution teams",
+      description="Focused on workflow execution, coordination across teams, and operational bottlenecks",
+   ),
 }

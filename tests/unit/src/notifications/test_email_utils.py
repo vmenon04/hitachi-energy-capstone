@@ -138,7 +138,7 @@ def test_send_insights_email_builds_expected_acs_message(monkeypatch):
         insights_text="Top risk is delayed procurement.",
         csv_name="issues.csv",
         subject="Daily Insights",
-        recipient="ops@example.com",
+        recipients=[" ops@example.com ", "ops@example.com", "lead@example.com", ""],
         sender="noreply@example.com",
         connection_string="Endpoint=example",
     )
@@ -146,7 +146,10 @@ def test_send_insights_email_builds_expected_acs_message(monkeypatch):
     message = sent["message"]
     assert sent["connection_string"] == "Endpoint=example"
     assert message["senderAddress"] == "noreply@example.com"
-    assert message["recipients"]["to"][0]["address"] == "ops@example.com"
+    assert [recipient["address"] for recipient in message["recipients"]["to"]] == [
+        "ops@example.com",
+        "lead@example.com",
+    ]
     assert message["content"]["subject"] == "Daily Insights"
     assert "issues.csv" in message["content"]["html"]
     assert "Top risk is delayed procurement." in message["content"]["plainText"]
