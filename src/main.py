@@ -54,6 +54,11 @@ def main():
         for persona_key, persona_config in PERSONAS.items():
             logger.info(f"Starting persona report generation: {persona_config.name} ({persona_key})")
 
+            recipients = [recipient.strip() for recipient in persona_config.email_recipients if recipient.strip()]
+            if not recipients:
+                logger.warning("No email recipients configured for persona=%s; skipping send", persona_key)
+                continue
+
             insights_result = generate_insights(
                 dfs,
                 system_prompt=persona_config.insights_system_prompt,
@@ -97,6 +102,7 @@ def main():
                 csv_name="Combined Blob Storage Datasets",
                 chart_images=chart_images,
                 subject=f"{persona_config.name} Insights Report",
+                recipients=recipients,
                 persona=persona_key,
             )
 

@@ -107,6 +107,24 @@ def _build_attachments(attachment_paths: list[str] | None) -> list[dict]:
     return attachments
 
 
+def _normalize_recipients(recipients: list[str] | None) -> list[str]:
+    """Trim addresses, drop empties, and preserve order."""
+    if not recipients:
+        return []
+
+    normalized: list[str] = []
+    seen: set[str] = set()
+
+    for recipient in recipients:
+        address = recipient.strip()
+        if not address or address in seen:
+            continue
+        normalized.append(address)
+        seen.add(address)
+
+    return normalized
+
+
 def build_html_email(
     insights_text: str,
     csv_name: str = "data.csv",
@@ -190,6 +208,7 @@ def send_insights_email(
     csv_name: str = "data.csv",
     *,
     subject: Optional[str] = None,
+    recipients: list[str] | None = None,
     recipient: Optional[str] = None,
     sender: Optional[str] = None,
     connection_string: Optional[str] = None,
@@ -203,6 +222,7 @@ def send_insights_email(
         insights_text: The insights text to include in the email.
         csv_name: The name of the data source.
         subject: Optional custom subject line. If not provided, a default based on persona is used.
+        recipients: Optional list of email recipients.
         recipient: Optional email recipient. Defaults to EMAIL_RECIPIENT env var.
         sender: Optional sender email. Defaults to EMAIL_FROM_ADDRESS env var.
         connection_string: Optional ACS connection string. Defaults to ACS_CONNECTION_STRING env var.
@@ -212,7 +232,14 @@ def send_insights_email(
     """
     conn_str = connection_string or _ACS_CONNECTION_STRING
     from_addr = sender or _EMAIL_SENDER
-    to_addr = recipient or _EMAIL_RECIPIENT
+    to_addrs = _normalize_recipients(recipients)
+    if not to_addrs:
+        legacy_recipient = (recipient or _EMAIL_RECIPIENT).strip()
+        if legacy_recipient:
+            to_addrs = [legacy_recipient]
+
+    if not to_addrs:
+        raise ValueError("At least one email recipient is required")
     
     # If subject not provided, generate a persona-specific one
     if subject is None:
@@ -241,9 +268,10 @@ def send_insights_email(
     attachments = _build_attachments(attachment_paths)
 
     print(f"\n{'─' * 50}")
-    print(f"  To          : {to_addr}")
+    print(f"  To          : {', '.join(to_addrs)}")
     print(f"  Subject     : {subject}")
     total_charts = sum(len(v) for v in chart_images.values()) if chart_images else 0
+    print(f"  Recipients  : {len(to_addrs)}")
     print(f"  Charts      : {total_charts} inline image(s)")
     print(f"{'─' * 50}")
 
@@ -266,7 +294,7 @@ def send_insights_email(
     client = EmailClient.from_connection_string(conn_str)
     message = {
         "senderAddress": from_addr,
-        "recipients": {"to": [{"address": to_addr}]},
+        "recipients": {"to": [{"address": address} for address in to_addrs]},
         "content": {
             "subject": subject,
             "plainText": plain_body,
