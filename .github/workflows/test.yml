@@ -7,7 +7,7 @@ on:
   push:
     branches-ignore: [main, infrastructure]
   pull_request:
-    branches: [main]
+    branches: [main, development]
 
 permissions:
   contents: read
