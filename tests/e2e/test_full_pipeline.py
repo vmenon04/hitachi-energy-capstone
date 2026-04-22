@@ -129,6 +129,11 @@ class TestPipelineHappyPath:
             pipeline.main()
 
         assert mock_email.call_count == 4
+        expected_recipients = [
+            pipeline.PERSONAS[persona_key].email_recipients
+            for persona_key in pipeline.PERSONAS
+        ]
+        assert [c.kwargs["recipients"] for c in mock_email.call_args_list] == expected_recipients
 
     def test_download_csv_is_called(self, monkeypatch):
         monkeypatch.delenv("SHAREPOINT_CLIENT_ID", raising=False)
@@ -207,6 +212,23 @@ class TestPipelineHappyPath:
         assert mock_email.call_count == 4
         for c in mock_email.call_args_list:
             assert c.kwargs["chart_images"] == FAKE_CHART_IMAGES
+            assert c.kwargs["recipients"] == pipeline.PERSONAS[c.kwargs["persona"]].email_recipients
+
+    def test_persona_without_recipients_is_skipped(self, monkeypatch):
+        monkeypatch.delenv("SHAREPOINT_CLIENT_ID", raising=False)
+        monkeypatch.setattr(pipeline.PERSONAS["operations"], "email_recipients", [])
+
+        with (
+            patch(PATCH_DOWNLOAD, return_value=FAKE_DFS),
+            patch(PATCH_INSIGHTS, return_value=_make_insights_result(FAKE_INSIGHTS)),
+            patch(PATCH_CHART_PLAN, return_value=FAKE_CHART_PLAN),
+            patch(PATCH_BUILD_CHARTS, return_value=([], FAKE_CHART_IMAGES)),
+            patch(PATCH_SEND_EMAIL) as mock_email,
+        ):
+            pipeline.main()
+
+        assert mock_email.call_count == 3
+        assert all(call.kwargs["persona"] != "operations" for call in mock_email.call_args_list)
 
     def test_each_persona_receives_distinct_system_prompt(self, monkeypatch):
         """main() passes a unique system_prompt to generate_insights for each persona."""
