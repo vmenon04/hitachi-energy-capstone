@@ -3,6 +3,10 @@ import io
 import pandas as pd
 from azure.storage.blob import BlobServiceClient
 
+class NoDataInputError(RuntimeError):
+    """Custom error to indicate no data was provided for insights generation."""
+    pass
+
 def download_csv(storage_connection_str: str, storage_container_name: str) -> dict[str, pd.DataFrame]:
     logger = logging.getLogger("hitachi_pipeline")
     logger.info(
