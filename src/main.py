@@ -5,7 +5,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 from utils.logging_utils import setup_logger, log_section, log_subsection
-from utils.data_utils import download_csv
+from utils.data_utils import download_csv, NoDataInputError
 from agents.agents import generate_insights, generate_chart_plan
 
 from datafetching.refresh_extraction import sharepoint_to_blob
@@ -46,6 +46,9 @@ def main():
 
         log_subsection("STEP 2: DOWNLOAD CSV FILES")
         dfs = download_csv(STORAGE_CONNECTION_STRING, STORAGE_CONTAINER_NAME)
+        if len(dfs) == 0:
+            logger.error(f"No CSV files found in Blob Storage container={STORAGE_CONTAINER_NAME}")
+            raise NoDataInputError("No CSV files to process")
         logger.info("Loaded %d CSV files from Blob Storage", len(dfs))
 
         log_subsection("STEP 3-6: GENERATE PERSONA REPORTS")
