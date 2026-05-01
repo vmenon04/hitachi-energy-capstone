@@ -13,7 +13,7 @@
 </p>
 <p align="center">
   <!-- Status -->
-  <img src="https://img.shields.io/badge/status-in%20development-orange" alt="Status: In Development" />
+  <img src="https://img.shields.io/badge/status-complete-brightgreen" alt="Status: Complete" />
   <br/><br/>
   <!-- CI/CD -->
   <a href="https://github.com/ncstate-csc-sdc/2026Spring-Team14-Hitachi-2/actions/workflows/deploy.yml">
